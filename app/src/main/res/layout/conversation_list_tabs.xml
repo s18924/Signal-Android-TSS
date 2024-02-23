@@ -30,9 +30,56 @@
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toEndOf="@id/secrets_tab_container"
         app:layout_constraintStart_toEndOf="@id/calls_tab_container"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <View
+        android:id="@+id/secrets_tab_container"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/stories_tab_container"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <com.airbnb.lottie.LottieAnimationView
+        android:id="@+id/secrets_tab_icon"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:importantForAccessibility="no"
+        android:scaleType="centerInside"
+        app:layout_constraintBottom_toTopOf="@id/secrets_tab_label"
+        app:layout_constraintEnd_toEndOf="@id/secrets_tab_touch_point"
+        app:layout_constraintStart_toStartOf="@id/secrets_tab_touch_point"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_chainStyle="packed"
+
+        app:lottie_rawRes="@raw/calls_28" />
+
+    <!-- Secrets Tab Touch Point -->
+    <View
+        android:id="@+id/secrets_tab_touch_point"
+        android:layout_width="80dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="@id/stories_tab_container"
+    app:layout_constraintStart_toEndOf="@id/secrets_tab_container"
+    app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/secrets_tab_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Secrets"
+        android:textAppearance="@style/TextAppearance.Signal.Body2"
+        android:textColor="@color/signal_colorOnBackground"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="@id/secrets_tab_icon"
+        app:layout_constraintStart_toStartOf="@id/secrets_tab_icon"
+        app:layout_constraintTop_toBottomOf="@id/secrets_tab_icon" />
+
 
     <View
         android:id="@+id/chats_tab_touch_point"

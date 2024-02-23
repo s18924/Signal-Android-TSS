@@ -74,6 +74,10 @@ class ConversationListTabsFragment : Fragment(R.layout.conversation_list_tabs) {
       viewModel.onStoriesSelected()
     }
 
+    view.findViewById<View>(R.id.secrets_tab_touch_point).setOnClickListener {
+      viewModel.onSecretsSelected()
+    }
+
     updateTabsVisibility()
 
     disposables += viewModel.state.subscribeBy {
