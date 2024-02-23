@@ -21,6 +21,10 @@
         <action
             android:id="@+id/action_conversationListFragment_to_callLogFragment"
             app:destination="@id/callLogFragment" />
+        <action
+            android:id="@+id/action_conversationListFragment_to_secretsLandingFragment"
+            app:destination="@id/secretsLandingFragment"
+            />
     </fragment>
 
     <fragment
@@ -34,7 +38,12 @@
         android:label="stories_landing_fragment">
         <action
             android:id="@+id/action_storiesLandingFragment_to_callLogFragment"
-            app:destination="@id/callLogFragment" />
+            app:destination="@id/callLogFragment"
+            />
+        <action
+            android:id="@+id/action_storiesLandingFragment_to_secretsLandingFragment"
+            app:destination="@id/secretsLandingFragment"
+            />
     </fragment>
 
     <fragment
@@ -47,6 +56,27 @@
         <action
             android:id="@+id/action_callLogFragment_to_createCallLinkBottomSheet"
             app:destination="@id/createCallLinkBottomSheet" />
+        <action
+            android:id="@+id/action_callLogFragment_to_secretsLandingFragment"
+            app:destination="@id/secretsLandingFragment"
+            />
+    </fragment>
+
+    <fragment
+        android:id="@+id/secretsLandingFragment"
+        android:name="org.thoughtcrime.securesms.secrets.SecretsLandingFragment"
+        android:label="secrets_landing_fragment">
+
+        <action
+            android:id="@+id/action_secretsLandingFragment_to_callLogFragment"
+            app:destination="@id/callLogFragment"
+            />
+
+        <action
+            android:id="@+id/action_secretsLandingFragment_to_storiesLandingFragment"
+            app:destination="@id/storiesLandingFragment"
+            />
+
     </fragment>
 
     <dialog

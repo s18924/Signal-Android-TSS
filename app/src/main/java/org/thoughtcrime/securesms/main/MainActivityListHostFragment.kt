@@ -103,6 +103,7 @@ class MainActivityListHostFragment : Fragment(R.layout.main_activity_list_host_f
         R.id.conversationListArchiveFragment -> Unit
         R.id.storiesLandingFragment -> goToStateFromStories(state, controller)
         R.id.callLogFragment -> goToStateFromCalling(state, controller)
+        R.id.secretsLandingFragment     -> goToStateFromSecrets(state, controller)
       }
     }
   }
@@ -130,6 +131,8 @@ class MainActivityListHostFragment : Fragment(R.layout.main_activity_list_host_f
 
       val destination = if (state.tab == ConversationListTab.STORIES) {
         R.id.action_conversationListFragment_to_storiesLandingFragment
+      } else if( state.tab == ConversationListTab.SECRETS) {
+        R.id.action_conversationListFragment_to_secretsLandingFragment
       } else {
         R.id.action_conversationListFragment_to_callLogFragment
       }
@@ -148,6 +151,16 @@ class MainActivityListHostFragment : Fragment(R.layout.main_activity_list_host_f
       ConversationListTab.CALLS -> return
       ConversationListTab.CHATS -> navController.popBackStack(R.id.conversationListFragment, false)
       ConversationListTab.STORIES -> navController.navigate(R.id.action_callLogFragment_to_storiesLandingFragment)
+      ConversationListTab.SECRETS -> navController.navigate(R.id.action_callLogFragment_to_secretsLandingFragment)
+    }
+  }
+
+  private fun goToStateFromSecrets(state: ConversationListTabsState, navController: NavController) {
+    when (state.tab) {
+      ConversationListTab.CALLS -> navController.navigate(R.id.action_secretsLandingFragment_to_callLogFragment    )
+      ConversationListTab.CHATS -> navController.popBackStack(R.id.conversationListFragment, false)
+      ConversationListTab.STORIES -> navController.navigate(R.id.action_secretsLandingFragment_to_storiesLandingFragment    )
+      ConversationListTab.SECRETS -> return
     }
   }
 
@@ -156,6 +169,7 @@ class MainActivityListHostFragment : Fragment(R.layout.main_activity_list_host_f
       ConversationListTab.STORIES -> return
       ConversationListTab.CHATS -> navController.popBackStack(R.id.conversationListFragment, false)
       ConversationListTab.CALLS -> navController.navigate(R.id.action_storiesLandingFragment_to_callLogFragment)
+      ConversationListTab.SECRETS -> navController.navigate(R.id.action_storiesLandingFragment_to_secretsLandingFragment    )
     }
   }
 

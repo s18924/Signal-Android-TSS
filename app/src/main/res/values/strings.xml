@@ -3397,7 +3397,7 @@
     <string name="preferences__dark_theme">Dark</string>
     <string name="preferences__appearance">Appearance</string>
     <string name="preferences__theme">Theme</string>
-    <string name="preferences__chat_color_and_wallpaper">Chat color &amp; wallpaper</string>
+    <string name="preferences__chat_color_and_wallpaper">Chat color &amp; wallpaper!</string>
     <!-- Clickable settings text allowing the user to change the icon visible on their phone\'s home screen. -->
     <string name="preferences__app_icon">App Icon</string>
     <!-- Approval for changing the app icon. -->
@@ -6908,6 +6908,7 @@
     <string name="MonthlyDonationCanceled__renew_button">Renew subscription</string>
     <!-- Bottom sheet dialog shown when a monthly donation fails to renew, second button to dismiss the dialog entirely -->
     <string name="MonthlyDonationCanceled__not_now_button">Not now</string>
+    <string name="hello_world">Hello!     \n</string>
 
     <!-- FindByActivity -->
     <!-- Title of activity when finding by username -->
