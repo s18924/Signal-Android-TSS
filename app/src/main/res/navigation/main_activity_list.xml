@@ -64,7 +64,7 @@
 
     <fragment
         android:id="@+id/secretsLandingFragment"
-        android:name="org.thoughtcrime.securesms.secrets.SecretsLandingFragment"
+        android:name="org.thoughtcrime.securesms.secrets.SecretsNavigationFragment"
         android:label="secrets_landing_fragment">
 
         <action
