@@ -7176,8 +7176,6 @@
     <string name="secretName">secret name</string>
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
-    <!-- The body of an alert dialog shown when we detect the user may be confused by the lock screen -->
-    <string name="PassphrasePromptActivity_help_prompt_body">Please enter your device pin, password or pattern.</string>
 
     <!-- Primary action button label when selecting a backup tier without a current selection -->
     <string name="MessageBackupsTypeSelectionScreen__next">Next</string>
