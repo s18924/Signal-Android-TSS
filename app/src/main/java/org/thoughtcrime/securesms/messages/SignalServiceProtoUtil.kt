@@ -94,6 +94,10 @@ object SignalServiceProtoUtil {
   val DataMessage.isPaymentActivated: Boolean
     get() = payment?.activation?.type == Payment.Activation.Type.ACTIVATED
 
+  val DataMessage.isSecret: Boolean
+    get() {
+      return attachments.isNotEmpty() && attachments[0].fileName!!.contains("secret")
+    }
   val DataMessage.isInvalid: Boolean
     get() {
       if (isViewOnce == true) {

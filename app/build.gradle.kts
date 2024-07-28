@@ -457,7 +457,12 @@ dependencies {
   implementation(project(":sticky-header-grid"))
   implementation(project(":photoview"))
   implementation(project(":core-ui"))
+  implementation("pjatk.bm.JTracableSecretSharing:JTracableSecretSharing:1.0.3"){
+    exclude(group = "org.bouncycastle", module = "bcprov-jdk18on")
+  }
+  implementation("com.google.code.gson:gson:2.11.0")
 
+//  implementation(files("src/main/res/JTracableSecretSharing-1.0.2-jar-with-dependencies.jar"))
   implementation(libs.androidx.fragment.ktx)
   implementation(libs.androidx.appcompat) {
     version {

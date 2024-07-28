@@ -6,14 +6,17 @@
 package org.thoughtcrime.securesms.secrets
 
 import android.os.Bundle
+import android.os.Parcelable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.parcelize.IgnoredOnParcel
+import kotlinx.parcelize.Parcelize
+import lombok.EqualsAndHashCode
 import org.thoughtcrime.securesms.R
 import org.thoughtcrime.securesms.databinding.SecretsLandingFragmentBinding
 
@@ -36,19 +39,10 @@ class SecretsLandingFragment : Fragment() {
   }
 
   private fun initializeUI() {
-    // Example: Set a text view to "Hello World"
-    //binding.helloWorldText.text = getString(R.string.hello_world)
 
     binding.createNewButton.setOnClickListener { findNavController().navigate(R.id.action_secretsLandingFragment_to_createNewSecretFragment)}
+    binding.mySecrets.setOnClickListener { findNavController().navigate(R.id.action_secretsLandingFragment_to_mySecretsFragment)}
 
-    val shares = mutableListOf<Share>()
-    binding.existingSharesList.adapter = ExistingSharesAdapter(shares)
-    binding.existingSharesList.layoutManager = LinearLayoutManager(requireContext())
-
-    shares.add(Share("11111111"))
-    shares.add(Share("22222222"))
-
-    binding.existingSharesList.adapter?.notifyDataSetChanged()
   }
 
   override fun onDestroyView() {
@@ -57,31 +51,36 @@ class SecretsLandingFragment : Fragment() {
   }
 }
 
-class ExistingSharesAdapter(private val shares: List<Share>) : RecyclerView.Adapter<ExistingSharesAdapter.ViewHolder>() {
+class ExistingSecretsAdapter(private val secrets: List<Secret>, private val listener: OnSecretClickListener) : RecyclerView.Adapter<ExistingSecretsAdapter.ViewHolder>() {
+
+  interface OnSecretClickListener {
+    fun onSecretClick(secret: Secret)
+  }
 
   class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-    val shareButton: Button = itemView.findViewById(R.id.button2)
+    val secretButton: Button = itemView.findViewById(R.id.button2)
   }
   override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-    val itemView = LayoutInflater.from(parent.context).inflate(R.layout.item_secret_share, parent, false)
+    val itemView = LayoutInflater.from(parent.context).inflate(R.layout.item_secret, parent, false)
     return ViewHolder(itemView)
   }
 
-  override fun getItemCount(): Int = shares.size
+  override fun getItemCount(): Int = secrets.size
 
   override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-    val share = shares[position]
-    holder.shareButton.text = share.hash
-    holder.shareButton.setOnClickListener {
-      // TODO
+    val secret = secrets[position]
+    holder.secretButton.text = secret.name
+    holder.secretButton.setOnClickListener {
+      listener.onSecretClick(secret)
+//      findNavController().navigate(R.id.action_mySecretsFragment_to_shareFragment)
     }
   }
 
 }
 
-data class Share(val hash: String) {
+@Parcelize
+@EqualsAndHashCode
+data class Share(val hash: String, val data: ByteArray) : Parcelable {
+  @IgnoredOnParcel
   val shares = mutableListOf<Share>()
 }
-
-
-
