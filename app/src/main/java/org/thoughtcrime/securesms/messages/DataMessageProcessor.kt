@@ -4,6 +4,7 @@ import ProtoUtil.isNotEmpty
 import android.content.Context
 import android.text.TextUtils
 import com.mobilecoin.lib.exceptions.SerializationException
+import okhttp3.internal.EMPTY_BYTE_ARRAY
 import okio.ByteString.Companion.toByteString
 import org.signal.core.util.Base64
 import org.signal.core.util.Hex
@@ -75,6 +76,7 @@ import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isInvalid
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isMediaMessage
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isPaymentActivated
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isPaymentActivationRequest
+import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isSecret
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isStoryReaction
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.toPointer
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.toPointersWithinLimit
@@ -87,6 +89,8 @@ import org.thoughtcrime.securesms.recipients.Recipient
 import org.thoughtcrime.securesms.recipients.Recipient.HiddenState
 import org.thoughtcrime.securesms.recipients.RecipientId
 import org.thoughtcrime.securesms.recipients.RecipientUtil
+import org.thoughtcrime.securesms.secrets.Secret
+import org.thoughtcrime.securesms.secrets.Share
 import org.thoughtcrime.securesms.stickers.StickerLocator
 import org.thoughtcrime.securesms.storage.StorageSyncHelper
 import org.thoughtcrime.securesms.util.EarlyMessageCacheEntry
@@ -156,6 +160,7 @@ object DataMessageProcessor {
     var insertResult: InsertResult? = null
     var messageId: MessageId? = null
     when {
+      message.isSecret -> handleSecretMessage(content, senderRecipient, message)
       message.isInvalid -> handleInvalidMessage(context, senderRecipient.id, groupId, envelope.timestamp!!)
       message.isEndSession -> insertResult = handleEndSessionMessage(context, senderRecipient.id, envelope, metadata)
       message.isExpirationUpdate -> insertResult = handleExpirationUpdate(envelope, metadata, senderRecipient.id, threadRecipient.id, groupId, message.expireTimerDuration, receivedTime, false)
@@ -232,6 +237,20 @@ object DataMessageProcessor {
 
     localMetrics?.onPostProcessComplete()
     localMetrics?.complete(groupId != null)
+  }
+
+  private fun handleSecretMessage(content: Content, senderRecipient: Recipient, message: DataMessage) {
+
+    SignalDatabase.secrets.add(
+      Secret(
+        message.body!!,
+        message.attachments[0].fileName!!,
+        senderRecipient.toString(),
+        5,
+        2,
+        mutableListOf(Share(message.body!!, EMPTY_BYTE_ARRAY    ))
+      )
+    )
   }
 
   private fun handleProfileKey(

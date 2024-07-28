@@ -1,0 +1,80 @@
+package org.thoughtcrime.securesms.secrets
+
+import android.os.Bundle
+import androidx.fragment.app.Fragment
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
+import org.thoughtcrime.securesms.R
+import org.thoughtcrime.securesms.database.SignalDatabase
+import org.thoughtcrime.securesms.databinding.FragmentMySecretsBinding
+import org.thoughtcrime.securesms.recipients.RecipientId
+
+private const val ARG_PARAM1 = "param1"
+private const val ARG_PARAM2 = "param2"
+
+class MySecretsFragment : Fragment(), ExistingSecretsAdapter.OnSecretClickListener {
+  private var param1: String? = null
+  private var param2: String? = null
+
+  private var _binding: FragmentMySecretsBinding? = null
+  private val binding get() = _binding!!
+
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    arguments?.let {
+      param1 = it.getString(ARG_PARAM1)
+      param2 = it.getString(ARG_PARAM2)
+    }
+  }
+
+  override fun onCreateView(
+    inflater: LayoutInflater, container: ViewGroup?,
+    savedInstanceState: Bundle?
+  ): View {
+
+    _binding = FragmentMySecretsBinding.inflate(inflater, container, false)
+
+    val secrets = mutableListOf<Secret>()
+
+    binding.existingSecretsList.adapter = ExistingSecretsAdapter(secrets, this)
+    binding.existingSecretsList.layoutManager = LinearLayoutManager(requireContext())
+
+    SignalDatabase.recipients.getRegistered().forEach { recipientId: RecipientId ->
+      secrets.add(
+        Secret(
+          "" + recipientId.toLong(),
+          "Test",
+          "Test",
+          4,
+          2
+        )
+      )
+    }
+
+    SignalDatabase.secrets.forEach { secret -> secrets.add(secret) }
+
+    binding.existingSecretsList
+
+    binding.existingSecretsList.adapter?.notifyDataSetChanged()
+    return binding.root
+  }
+
+  companion object {
+    @JvmStatic
+    fun newInstance(param1: String, param2: String) =
+      MySecretsFragment().apply {
+        arguments = Bundle().apply {
+          putString(ARG_PARAM1, param1)
+          putString(ARG_PARAM2, param2)
+        }
+      }
+  }
+
+  override fun onSecretClick(secret: Secret) {
+    var action = MySecretsFragmentDirections.actionMySecretsToSecretOverviewFragment(secret)
+    findNavController().navigate(action)
+  }
+}

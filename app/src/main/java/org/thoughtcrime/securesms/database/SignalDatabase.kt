@@ -19,6 +19,7 @@ import org.thoughtcrime.securesms.database.model.AvatarPickerDatabase
 import org.thoughtcrime.securesms.jobs.PreKeysSyncJob
 import org.thoughtcrime.securesms.migrations.LegacyMigrationJob
 import org.thoughtcrime.securesms.migrations.LegacyMigrationJob.DatabaseUpgradeListener
+import org.thoughtcrime.securesms.secrets.Secret
 import org.thoughtcrime.securesms.service.KeyCachingService
 import org.thoughtcrime.securesms.util.TextSecurePreferences
 import java.io.File
@@ -359,6 +360,9 @@ open class SignalDatabase(private val context: Application, databaseSecret: Data
     @get:JvmName("attachments")
     val attachments: AttachmentTable
       get() = instance!!.attachmentTable
+
+    val secrets: MutableList<Secret> = mutableListOf()
+
 
     @get:JvmStatic
     @get:JvmName("avatarPicker")

@@ -14,25 +14,27 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.fragment.app.Fragment
+import com.google.gson.Gson
 import org.signal.core.util.logging.Log
 import org.thoughtcrime.securesms.R
+import org.thoughtcrime.securesms.attachments.UriAttachment
+import org.thoughtcrime.securesms.database.AttachmentTable
+import org.thoughtcrime.securesms.database.SignalDatabase
+import org.thoughtcrime.securesms.dependencies.AppDependencies
+import org.thoughtcrime.securesms.mms.OutgoingMessage
+import org.thoughtcrime.securesms.mms.SlideDeck
+import org.thoughtcrime.securesms.recipients.Recipient
+import org.thoughtcrime.securesms.sms.MessageSender
+import org.whispersystems.signalservice.api.util.OptionalUtil.asOptional
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
 private const val ARG_PARAM1 = "param1"
 private const val ARG_PARAM2 = "param2"
 
-/**
- * A simple [Fragment] subclass.
- * Use the [CreateNewSecretFragment.newInstance] factory method to
- * create an instance of this fragment.
- */
 class CreateNewSecretFragment : Fragment() {
-  // TODO: Rename and change types of parameters
-  private var param1: String? = null
-  private var param2: String? = null
+  private var secretContent: String? = null
+  private var fileUri: Uri? = null
 
   private val selectFileLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
     if (uri != null) {
@@ -45,16 +47,15 @@ class CreateNewSecretFragment : Fragment() {
 
       view?.findViewById<AppCompatTextView>(R.id.selectedFileName)?.text = getFileNameFromUri(uri)
 
-      view?.findViewById<TextView>(R.id.secretNameEditText)?.text = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + " " + getFileNameFromUri(uri)
-
+      view?.findViewById<TextView>(R.id.secretNameEditText)?.text = "${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))} ${getFileNameFromUri(uri)}"
+      secretContent = content;
+      fileUri = uri;
     }
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     arguments?.let {
-      param1 = it.getString(ARG_PARAM1)
-      param2 = it.getString(ARG_PARAM2)
     }
   }
 
@@ -91,6 +92,107 @@ class CreateNewSecretFragment : Fragment() {
 
     selectSecretFileButton.setOnClickListener {
       selectFileLauncher.launch("*/*")
+    }
+
+    for (i in 1..10) {
+      SignalDatabase.secrets.add(Secret("" + i, "" + LocalDateTime.now(), "Me", 5 + i, 1 + i))
+    }
+
+    generateButton.setOnClickListener {
+
+      val n = secretShareNumberEditText.text.toString().toInt()
+      val k = secretRecoveryShareNumberEditText.text.toString().toInt()
+      var traceableSecretSharingClient = pjatk.secret.TraceableSecretSharingClient(n, k, secretContent)
+      var toTypedArray = traceableSecretSharingClient.traceableDataShares.values.toMutableList()
+      val newSecret = Secret(
+        "!",
+        "" + LocalDateTime.now(),
+        Recipient.self().nickname.toString() + Recipient.self().id,
+        n,
+        k,
+        toTypedArray.map { it -> Share(it.shareHash.toString(), it.encryptedShare) }.toMutableList()
+      )
+      SignalDatabase.secrets.add(newSecret)
+      println(SignalDatabase.secrets)
+
+      var cursor = SignalDatabase.messages.getConversation(4);
+      var messageId = 0;
+
+      if (cursor.moveToFirst()) {
+        do {
+          val messageBody = cursor.getString(cursor.getColumnIndex("body"))
+          messageId = cursor.getInt(cursor.getColumnIndex("_id"))
+          println(">> " + messageId + " " + messageBody)
+          // ... access other columns
+        } while (cursor.moveToNext())
+      }
+      cursor.close()
+
+      //RecipientUtil.setAndSendUniversalExpireTimerIfNecessary(AppDependencies.application, Recipient.resolved(RecipientId.from(6)), 1L )
+//      val attachment = org.thoughtcrime.securesms.backup.proto.Attachment(fileUri,)
+
+      var attachmentMessage = OutgoingMessage(
+
+        Recipient.self(),
+        SlideDeck(UriAttachment(
+          fileUri!!,
+          "text/plain8",
+          AttachmentTable.TRANSFER_PROGRESS_DONE,
+          secretContent?.length?.toLong() ?: 100,
+          0,
+          0,
+          fileUri?.let { it1 -> getFileNameFromUri(it1) },
+          null,
+          false,
+          false,
+          false,
+          false,
+          null,
+          null,
+          null,
+          null,
+          null
+        )),
+        Gson().toJson(newSecret),
+        System.currentTimeMillis()
+
+      )
+      println("!! " + Gson().toJson(newSecret))
+      var message = OutgoingMessage.text(
+        Recipient.self(),
+//        Recipient.resolved(RecipientId.from(6)),
+        "Udostępniony został fragment sekretu. Znajdziesz go w panelu secrets w aplikacji. " + messageId + "X".repeat(2048),
+        0
+      )
+      MessageSender.send(
+        AppDependencies.application,
+        attachmentMessage,
+        -1,
+        MessageSender.SendType.SIGNAL,
+        null,
+        null
+      )
+      message = OutgoingMessage.text(
+        Recipient.self(),
+//        Recipient.resolved(RecipientId.from(6)),
+        "SEKRET" + messageId,
+        0
+      )
+      MessageSender.send(
+        AppDependencies.application,
+        message,
+        -1,
+        MessageSender.SendType.SIGNAL,
+        null,
+        null
+      )
+      cursor = SignalDatabase.messages.getConversation(SignalDatabase.threads.getThreadIdFor(Recipient.self().id).asOptional().orElse(0));
+
+      cursor.moveToFirst()
+      messageId = cursor.getInt(cursor.getColumnIndex("_id"))
+      println("Last message ID = " + messageId)
+      MessageSender.sendRemoteDelete(messageId.toLong())
+      cursor.close()
     }
 
   }
