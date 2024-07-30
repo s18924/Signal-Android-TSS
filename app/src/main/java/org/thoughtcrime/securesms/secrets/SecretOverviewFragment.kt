@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import org.thoughtcrime.securesms.databinding.FragmentSecretOverviewBinding
+import org.thoughtcrime.securesms.secrets.database.Secret
 
 private const val ARG_PARAM1 = "param1"
 private const val ARG_PARAM2 = "param2"
@@ -32,7 +33,7 @@ class SecretOverviewFragment : Fragment() {
     val secret = arguments?.getParcelable<Secret>("secret")
 
 
-    binding.textViewShareK.text = secret?.n.toString()
+    binding.textViewShareK.text = secret?.k.toString()
     binding.textViewShareN.text = secret?.n.toString()
 
     binding.textViewSecretHash.text = secret?.hash

@@ -11,10 +11,13 @@ import android.widget.Button
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.google.gson.Gson
 import org.thoughtcrime.securesms.R
 import org.thoughtcrime.securesms.database.SignalDatabase
 import org.thoughtcrime.securesms.recipients.Recipient
 import org.thoughtcrime.securesms.recipients.RecipientId
+import org.thoughtcrime.securesms.secrets.database.Secret
+import org.thoughtcrime.securesms.secrets.database.Share
 
 private const val ARG_PARAM1 = "param1"
 private const val ARG_PARAM2 = "param2"
@@ -58,6 +61,7 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
     val downloadButton: Button = itemView.findViewById(R.id.button_downloadShare)
     val removeButton: Button = itemView.findViewById(R.id.button_removeShare)
     val contactsSpinner: Spinner = itemView.findViewById(R.id.spinner_contacts)
+    val isShared: TextView = itemView.findViewById(R.id.textView_isShared)
   }
 
   override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -69,12 +73,41 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
     val share = shares[position]
     holder.shareHashTextView.text = share.hash
 
+    holder.isShared.text = if (share.isShared) "Already shared" else "Not shared"
+
+
     val adapter = RecipientAdapter(holder.itemView.context, SignalDatabase.recipients.getRegistered().toTypedArray())
     val spinner = holder.contactsSpinner
     spinner.adapter = adapter;
 
+//    val owner = SignalDatabase.recipients.getRecord(Recipient.self().id)
+
     holder.shareButton.setOnClickListener {
-      MessageUtils.sendMessage(Recipient.resolved(holder.contactsSpinner.selectedItem as RecipientId), "SEKRETNA WIADOMOŚĆ")
+
+      if(share.isShared){
+
+      } else {
+
+        var secret = Secret(
+
+
+          share.hashOfSecret!!,
+          Recipient.self().profileName.toString(),
+          Recipient.self().aci.get().toString(),
+          share.k,
+          0,
+          mutableListOf(share)
+        )
+
+
+        MessageUtils.sendMessage(Recipient.resolved(holder.contactsSpinner.selectedItem as RecipientId), Gson().toJson(secret))
+        share.isShared = true;
+        holder.isShared.text = if (share.isShared) "Already shared" else "Not shared"
+
+        holder.shareButton.text = "request"
+
+      }
+
     }
     holder.downloadButton.setOnClickListener {
     }

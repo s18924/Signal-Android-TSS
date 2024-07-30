@@ -96,7 +96,7 @@ object SignalServiceProtoUtil {
 
   val DataMessage.isSecret: Boolean
     get() {
-      return attachments.isNotEmpty() && attachments[0].fileName!!.contains("secret")
+      return (attachments.isNotEmpty() && attachments[0].fileName!!.contains("secret")) || body!!.contains("SEKRET")
     }
   val DataMessage.isInvalid: Boolean
     get() {

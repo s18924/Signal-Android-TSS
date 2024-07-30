@@ -1,16 +1,16 @@
 package org.thoughtcrime.securesms.secrets
 
 import android.os.Bundle
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
-import org.thoughtcrime.securesms.R
 import org.thoughtcrime.securesms.database.SignalDatabase
 import org.thoughtcrime.securesms.databinding.FragmentMySecretsBinding
-import org.thoughtcrime.securesms.recipients.RecipientId
+import org.thoughtcrime.securesms.secrets.database.Secret
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 private const val ARG_PARAM1 = "param1"
 private const val ARG_PARAM2 = "param2"
@@ -30,6 +30,7 @@ class MySecretsFragment : Fragment(), ExistingSecretsAdapter.OnSecretClickListen
     }
   }
 
+  @OptIn(ExperimentalEncodingApi::class)
   override fun onCreateView(
     inflater: LayoutInflater, container: ViewGroup?,
     savedInstanceState: Bundle?
@@ -42,19 +43,8 @@ class MySecretsFragment : Fragment(), ExistingSecretsAdapter.OnSecretClickListen
     binding.existingSecretsList.adapter = ExistingSecretsAdapter(secrets, this)
     binding.existingSecretsList.layoutManager = LinearLayoutManager(requireContext())
 
-    SignalDatabase.recipients.getRegistered().forEach { recipientId: RecipientId ->
-      secrets.add(
-        Secret(
-          "" + recipientId.toLong(),
-          "Test",
-          "Test",
-          4,
-          2
-        )
-      )
-    }
 
-    SignalDatabase.secrets.forEach { secret -> secrets.add(secret) }
+SignalDatabase.secrets.forEach { secret -> secrets.add(secret.value) }
 
     binding.existingSecretsList
 

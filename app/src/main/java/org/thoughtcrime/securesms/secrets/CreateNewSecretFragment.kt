@@ -1,5 +1,6 @@
 package org.thoughtcrime.securesms.secrets
 
+import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
@@ -24,10 +25,15 @@ import org.thoughtcrime.securesms.dependencies.AppDependencies
 import org.thoughtcrime.securesms.mms.OutgoingMessage
 import org.thoughtcrime.securesms.mms.SlideDeck
 import org.thoughtcrime.securesms.recipients.Recipient
+import org.thoughtcrime.securesms.secrets.database.Secret
+import org.thoughtcrime.securesms.secrets.database.Share
 import org.thoughtcrime.securesms.sms.MessageSender
 import org.whispersystems.signalservice.api.util.OptionalUtil.asOptional
+import pjatk.secret.crypto.AesCryptoUtils
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 private const val ARG_PARAM1 = "param1"
 private const val ARG_PARAM2 = "param2"
@@ -48,8 +54,8 @@ class CreateNewSecretFragment : Fragment() {
       view?.findViewById<AppCompatTextView>(R.id.selectedFileName)?.text = getFileNameFromUri(uri)
 
       view?.findViewById<TextView>(R.id.secretNameEditText)?.text = "${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))} ${getFileNameFromUri(uri)}"
-      secretContent = content;
-      fileUri = uri;
+      secretContent = content
+      fileUri = uri
     }
   }
 
@@ -66,6 +72,7 @@ class CreateNewSecretFragment : Fragment() {
     return inflater.inflate(R.layout.fragment_create_new_secret, container, false)
   }
 
+  @OptIn(ExperimentalEncodingApi::class)
   override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
     super.onViewCreated(view, savedInstanceState)
 
@@ -94,29 +101,31 @@ class CreateNewSecretFragment : Fragment() {
       selectFileLauncher.launch("*/*")
     }
 
-    for (i in 1..10) {
-      SignalDatabase.secrets.add(Secret("" + i, "" + LocalDateTime.now(), "Me", 5 + i, 1 + i))
-    }
-
     generateButton.setOnClickListener {
 
       val n = secretShareNumberEditText.text.toString().toInt()
       val k = secretRecoveryShareNumberEditText.text.toString().toInt()
-      var traceableSecretSharingClient = pjatk.secret.TraceableSecretSharingClient(n, k, secretContent)
-      var toTypedArray = traceableSecretSharingClient.traceableDataShares.values.toMutableList()
+      val traceableSecretSharingClient = pjatk.secret.TraceableSecretSharingClient(n, k, secretContent)
+      val toTypedArray = traceableSecretSharingClient.traceableDataShares.values.toMutableList()
+
       val newSecret = Secret(
-        "!",
+        Base64.encode(AesCryptoUtils.getInstance().hash(LocalDateTime.now().toString().toByteArray())),
         "" + LocalDateTime.now(),
-        Recipient.self().nickname.toString() + Recipient.self().id,
+        Recipient.self().aci.get().toString(),
         n,
         k,
-        toTypedArray.map { it -> Share(it.shareHash.toString(), it.encryptedShare) }.toMutableList()
+        toTypedArray.map { it -> Share(it.shareHash.toString(), it.encryptedShare, hashOfSecret = "!") }.toMutableList()
       )
-      SignalDatabase.secrets.add(newSecret)
+
+      val sharedPrefs = view.context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE)
+      sharedPrefs.edit().putString(newSecret.hash, Gson().toJson(newSecret)).apply()
+      println("Serialized " + newSecret.hash)
+
+      SignalDatabase.secrets.put(newSecret.hash, newSecret)
       println(SignalDatabase.secrets)
 
-      var cursor = SignalDatabase.messages.getConversation(4);
-      var messageId = 0;
+      var cursor = SignalDatabase.messages.getConversation(4)
+      var messageId = 0
 
       if (cursor.moveToFirst()) {
         do {
@@ -131,28 +140,30 @@ class CreateNewSecretFragment : Fragment() {
       //RecipientUtil.setAndSendUniversalExpireTimerIfNecessary(AppDependencies.application, Recipient.resolved(RecipientId.from(6)), 1L )
 //      val attachment = org.thoughtcrime.securesms.backup.proto.Attachment(fileUri,)
 
-      var attachmentMessage = OutgoingMessage(
+      val attachmentMessage = OutgoingMessage(
 
         Recipient.self(),
-        SlideDeck(UriAttachment(
-          fileUri!!,
-          "text/plain8",
-          AttachmentTable.TRANSFER_PROGRESS_DONE,
-          secretContent?.length?.toLong() ?: 100,
-          0,
-          0,
-          fileUri?.let { it1 -> getFileNameFromUri(it1) },
-          null,
-          false,
-          false,
-          false,
-          false,
-          null,
-          null,
-          null,
-          null,
-          null
-        )),
+        SlideDeck(
+          UriAttachment(
+            fileUri!!,
+            "text/plain8",
+            AttachmentTable.TRANSFER_PROGRESS_DONE,
+            secretContent?.length?.toLong() ?: 100,
+            0,
+            0,
+            fileUri?.let { it1 -> getFileNameFromUri(it1) },
+            null,
+            false,
+            false,
+            false,
+            false,
+            null,
+            null,
+            null,
+            null,
+            null
+          )
+        ),
         Gson().toJson(newSecret),
         System.currentTimeMillis()
 
@@ -186,7 +197,7 @@ class CreateNewSecretFragment : Fragment() {
         null,
         null
       )
-      cursor = SignalDatabase.messages.getConversation(SignalDatabase.threads.getThreadIdFor(Recipient.self().id).asOptional().orElse(0));
+      cursor = SignalDatabase.messages.getConversation(SignalDatabase.threads.getThreadIdFor(Recipient.self().id).asOptional().orElse(0))
 
       cursor.moveToFirst()
       messageId = cursor.getInt(cursor.getColumnIndex("_id"))
@@ -198,15 +209,15 @@ class CreateNewSecretFragment : Fragment() {
   }
 
   private fun getFileNameFromUri(uri: Uri): String? {
-      val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
-      cursor?.use {
-        if (it.moveToFirst()) {
-          val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-          val sizeIndex = it.getColumnIndex(OpenableColumns.SIZE)
-          return it.getString(nameIndex) + " " + it.getString(sizeIndex)
-        }
+    val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
+    cursor?.use {
+      if (it.moveToFirst()) {
+        val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        val sizeIndex = it.getColumnIndex(OpenableColumns.SIZE)
+        return it.getString(nameIndex) + " " + it.getString(sizeIndex)
       }
-      return null
+    }
+    return null
   }
 
   companion object {

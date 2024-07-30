@@ -5,8 +5,8 @@
 
 package org.thoughtcrime.securesms.secrets
 
+import android.content.Context
 import android.os.Bundle
-import android.os.Parcelable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -14,11 +14,14 @@ import android.widget.Button
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.RecyclerView
-import kotlinx.parcelize.IgnoredOnParcel
-import kotlinx.parcelize.Parcelize
-import lombok.EqualsAndHashCode
+import com.google.gson.Gson
 import org.thoughtcrime.securesms.R
+import org.thoughtcrime.securesms.database.SignalDatabase
 import org.thoughtcrime.securesms.databinding.SecretsLandingFragmentBinding
+import org.thoughtcrime.securesms.recipients.Recipient
+import org.thoughtcrime.securesms.recipients.RecipientId
+import org.thoughtcrime.securesms.secrets.database.Secret
+import org.whispersystems.signalservice.api.push.ServiceId
 
 /**
  * Fragment for displaying "Secrets" content.
@@ -30,6 +33,14 @@ class SecretsLandingFragment : Fragment() {
 
   override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
     _binding = SecretsLandingFragmentBinding.inflate(inflater, container, false)
+
+
+//    inflater.context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE).edit().clear().commit()
+    inflater.context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE).all.values.forEach {
+      val secret = Gson().fromJson(it as String, Secret::class.java)
+      SignalDatabase.secrets.put(secret.hash, secret)
+      println("Deserialized secret: ${secret.hash} ${secret.name}")
+    }
     return binding.root
   }
 
@@ -69,7 +80,9 @@ class ExistingSecretsAdapter(private val secrets: List<Secret>, private val list
 
   override fun onBindViewHolder(holder: ViewHolder, position: Int) {
     val secret = secrets[position]
-    holder.secretButton.text = secret.name
+
+
+    holder.secretButton.text = "Sekret: ${secret.name} | Owner: ${Recipient.resolved(RecipientId.from(ServiceId.Companion.parseOrThrow(secret.owner))).profileName}" //TODO Can throw
     holder.secretButton.setOnClickListener {
       listener.onSecretClick(secret)
 //      findNavController().navigate(R.id.action_mySecretsFragment_to_shareFragment)
@@ -78,9 +91,7 @@ class ExistingSecretsAdapter(private val secrets: List<Secret>, private val list
 
 }
 
-@Parcelize
-@EqualsAndHashCode
-data class Share(val hash: String, val data: ByteArray) : Parcelable {
-  @IgnoredOnParcel
-  val shares = mutableListOf<Share>()
-}
+
+
+
+

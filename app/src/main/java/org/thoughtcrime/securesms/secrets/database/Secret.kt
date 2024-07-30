@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-package org.thoughtcrime.securesms.secrets
+package org.thoughtcrime.securesms.secrets.database
 
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize

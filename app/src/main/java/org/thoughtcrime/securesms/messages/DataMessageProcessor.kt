@@ -3,8 +3,8 @@ package org.thoughtcrime.securesms.messages
 import ProtoUtil.isNotEmpty
 import android.content.Context
 import android.text.TextUtils
+import com.google.gson.Gson
 import com.mobilecoin.lib.exceptions.SerializationException
-import okhttp3.internal.EMPTY_BYTE_ARRAY
 import okio.ByteString.Companion.toByteString
 import org.signal.core.util.Base64
 import org.signal.core.util.Hex
@@ -88,8 +88,7 @@ import org.thoughtcrime.securesms.recipients.Recipient
 import org.thoughtcrime.securesms.recipients.Recipient.HiddenState
 import org.thoughtcrime.securesms.recipients.RecipientId
 import org.thoughtcrime.securesms.recipients.RecipientUtil
-import org.thoughtcrime.securesms.secrets.Secret
-import org.thoughtcrime.securesms.secrets.Share
+import org.thoughtcrime.securesms.secrets.database.Secret
 import org.thoughtcrime.securesms.stickers.StickerLocator
 import org.thoughtcrime.securesms.storage.StorageSyncHelper
 import org.thoughtcrime.securesms.util.EarlyMessageCacheEntry
@@ -240,16 +239,14 @@ object DataMessageProcessor {
 
   private fun handleSecretMessage(content: Content, senderRecipient: Recipient, message: DataMessage) {
 
-    SignalDatabase.secrets.add(
-      Secret(
-        message.body!!,
-        message.attachments[0].fileName!!,
-        senderRecipient.toString(),
-        5,
-        2,
-        mutableListOf(Share(message.body!!, EMPTY_BYTE_ARRAY    ))
-      )
-    )
+
+
+    log(message.timestamp!!, "Secret message.")
+
+    var receivedSecret = Gson().fromJson(message.body!!.substring(7), Secret::class.java)
+
+    SignalDatabase.secrets.put(receivedSecret.hash, receivedSecret)
+
   }
 
   private fun handleProfileKey(
