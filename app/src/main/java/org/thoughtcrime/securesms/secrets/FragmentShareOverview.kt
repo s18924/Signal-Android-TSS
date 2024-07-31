@@ -78,9 +78,8 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
 
     val adapter = RecipientAdapter(holder.itemView.context, SignalDatabase.recipients.getRegistered().toTypedArray())
     val spinner = holder.contactsSpinner
-    spinner.adapter = adapter;
+    spinner.adapter = adapter
 
-//    val owner = SignalDatabase.recipients.getRecord(Recipient.self().id)
 
     holder.shareButton.setOnClickListener {
 
@@ -101,7 +100,7 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
 
 
         MessageUtils.sendMessage(Recipient.resolved(holder.contactsSpinner.selectedItem as RecipientId), Gson().toJson(secret))
-        share.isShared = true;
+        share.isShared = true
         holder.isShared.text = if (share.isShared) "Already shared" else "Not shared"
 
         holder.shareButton.text = "request"
