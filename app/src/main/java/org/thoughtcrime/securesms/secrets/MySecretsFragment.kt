@@ -5,11 +5,15 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import kotlinx.coroutines.launch
 import org.thoughtcrime.securesms.database.SignalDatabase
 import org.thoughtcrime.securesms.databinding.FragmentMySecretsBinding
 import org.thoughtcrime.securesms.secrets.database.Secret
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 private const val ARG_PARAM1 = "param1"
@@ -44,7 +48,7 @@ class MySecretsFragment : Fragment(), ExistingSecretsAdapter.OnSecretClickListen
     binding.existingSecretsList.layoutManager = LinearLayoutManager(requireContext())
 
 
-SignalDatabase.secrets.forEach { secret -> secrets.add(secret.value) }
+    SignalDatabase.secrets.forEach { secret -> secrets.add(secret.value) }
 
     binding.existingSecretsList
 
@@ -64,7 +68,20 @@ SignalDatabase.secrets.forEach { secret -> secrets.add(secret.value) }
   }
 
   override fun onSecretClick(secret: Secret) {
-    var action = MySecretsFragmentDirections.actionMySecretsToSecretOverviewFragment(secret)
+    val apiService = Retrofit.Builder()
+      .baseUrl("http://10.0.2.2:8080/") // Or your machine's IP address
+      .addConverterFactory(GsonConverterFactory.create())
+      .build()
+      .create(AccessMachineApi::class.java)
+
+
+    lifecycleScope.launch {
+      var wallet = apiService.getWallet()
+      println("Wallet printing: ")
+      println(wallet.body())
+      println("Wallet printing ^")
+    }
+    val action = MySecretsFragmentDirections.actionMySecretsToSecretOverviewFragment(secret)
     findNavController().navigate(action)
   }
 }
