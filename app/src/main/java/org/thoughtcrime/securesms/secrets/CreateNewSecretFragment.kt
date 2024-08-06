@@ -15,7 +15,9 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import com.google.gson.Gson
+import kotlinx.coroutines.launch
 import org.signal.core.util.logging.Log
 import org.thoughtcrime.securesms.R
 import org.thoughtcrime.securesms.attachments.UriAttachment
@@ -29,10 +31,9 @@ import org.thoughtcrime.securesms.secrets.database.Secret
 import org.thoughtcrime.securesms.secrets.database.Share
 import org.thoughtcrime.securesms.sms.MessageSender
 import org.whispersystems.signalservice.api.util.OptionalUtil.asOptional
-import pjatk.secret.crypto.AesCryptoUtils
+import pjatk.secret.TraceableSecretSharingClient
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 private const val ARG_PARAM1 = "param1"
@@ -79,6 +80,7 @@ class CreateNewSecretFragment : Fragment() {
     val selectSecretFileButton = view.findViewById<Button>(R.id.selectFileButton)
     val generateButton = view.findViewById<Button>(R.id.createSecretSharesButton)
     val secretShareNumberEditText = view.findViewById<EditText>(R.id.secretShareNumberEditTextNumber)
+    val secretNameEditText = view.findViewById<EditText>(R.id.secretNameEditText)
     val secretRecoveryShareNumberEditText = view.findViewById<EditText>(R.id.secretRecoveryShareNumberEditTextNumber)
 
     val textWatcher = object : TextWatcher {
@@ -105,24 +107,37 @@ class CreateNewSecretFragment : Fragment() {
 
       val n = secretShareNumberEditText.text.toString().toInt()
       val k = secretRecoveryShareNumberEditText.text.toString().toInt()
-      val traceableSecretSharingClient = pjatk.secret.TraceableSecretSharingClient(n, k, secretContent)
-      val toTypedArray = traceableSecretSharingClient.traceableDataShares.values.toMutableList()
+      val traceableSecretSharingClient = TraceableSecretSharingClient(n, k, secretContent)
+      val sharesList = traceableSecretSharingClient.traceableDataShares.values.toMutableList()
+
+      traceableSecretSharingClient.traceableDataShares.values.forEach {
+
+        val sharesPersistenceJob = lifecycleScope.launch {
+          val response = SecretServerApiUtils.makeApiRequest { SecretServerApiUtils.apiService.persist(PersistData(it.shareHash, it.key.encoded)) }
+          println(response)
+          if (!response.isSuccessful) {
+            println("Error persisting secret")
+          }
+        }
+
+      }
+
 
       val newSecret = Secret(
-        Base64.encode(AesCryptoUtils.getInstance().hash(LocalDateTime.now().toString().toByteArray())),
-        "" + LocalDateTime.now(),
+        secretNameEditText.text.toString(),
         Recipient.self().aci.get().toString(),
-        n,
         k,
-        toTypedArray.map { it -> Share(it.shareHash.toString(), it.encryptedShare, hashOfSecret = "!") }.toMutableList()
+        n,
+        sharesList.map { it ->
+          Share(
+            it.encryptedShare,
+            k = k,
+            owner = Recipient.self().aci.get().toString()
+          )
+        }.toMutableList()
       )
 
-      val sharedPrefs = view.context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE)
-      sharedPrefs.edit().putString(newSecret.hash, Gson().toJson(newSecret)).apply()
-      println("Serialized " + newSecret.hash)
-
-      SignalDatabase.secrets.put(newSecret.hash, newSecret)
-      println(SignalDatabase.secrets)
+      persistSecret(view, newSecret)
 
       var cursor = SignalDatabase.messages.getConversation(4)
       var messageId = 0
@@ -206,6 +221,15 @@ class CreateNewSecretFragment : Fragment() {
       cursor.close()
     }
 
+  }
+
+  private fun persistSecret(view: View, newSecret: Secret) {
+    val sharedPrefs = view.context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE)
+    sharedPrefs.edit().putString(newSecret.hash, Gson().toJson(newSecret)).apply()
+    println("Serialized " + newSecret.hash)
+
+    SignalDatabase.secrets.put(newSecret.hash, newSecret)
+    println(SignalDatabase.secrets)
   }
 
   private fun getFileNameFromUri(uri: Uri): String? {

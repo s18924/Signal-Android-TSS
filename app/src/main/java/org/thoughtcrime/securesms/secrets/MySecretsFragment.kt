@@ -68,19 +68,6 @@ class MySecretsFragment : Fragment(), ExistingSecretsAdapter.OnSecretClickListen
   }
 
   override fun onSecretClick(secret: Secret) {
-    val apiService = Retrofit.Builder()
-      .baseUrl("http://10.0.2.2:8080/") // Or your machine's IP address
-      .addConverterFactory(GsonConverterFactory.create())
-      .build()
-      .create(AccessMachineApi::class.java)
-
-
-    lifecycleScope.launch {
-      var wallet = apiService.getWallet()
-      println("Wallet printing: ")
-      println(wallet.body())
-      println("Wallet printing ^")
-    }
     val action = MySecretsFragmentDirections.actionMySecretsToSecretOverviewFragment(secret)
     findNavController().navigate(action)
   }
