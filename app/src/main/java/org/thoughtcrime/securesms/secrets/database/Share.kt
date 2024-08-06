@@ -8,14 +8,19 @@ package org.thoughtcrime.securesms.secrets.database
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 import lombok.EqualsAndHashCode
+import pjatk.secret.crypto.AesCryptoUtils
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 @Parcelize
 @EqualsAndHashCode
-data class Share(
-  val hash: String,
+data class Share @OptIn(ExperimentalEncodingApi::class) constructor(
   val data: ByteArray,
+  val hash: String = Base64.encode(AesCryptoUtils.getInstance().hash(data)),
   var isShared: Boolean = false,
   val sharedWithServiceId: String? = null,
-  val hashOfSecret: String? = null,
-  val k: Int = 0
+  var hashOfSecret: String? = null,
+  val k: Int = 0,
+  val owner: String? = null,
+  val isRequested: Boolean = false
 ) : Parcelable

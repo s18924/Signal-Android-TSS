@@ -245,7 +245,7 @@ object DataMessageProcessor {
 
     var receivedSecret = Gson().fromJson(message.body!!.substring(7), Secret::class.java)
 
-    SignalDatabase.secrets.put(receivedSecret.hash, receivedSecret)
+    SignalDatabase.secrets[receivedSecret.hash] = receivedSecret
 
   }
 
