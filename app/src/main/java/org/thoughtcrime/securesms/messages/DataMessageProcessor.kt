@@ -77,6 +77,7 @@ import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isMediaMessage
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isPaymentActivated
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isPaymentActivationRequest
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isSecret
+import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isSecretRequest
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isStoryReaction
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.toPointer
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.toPointersWithinLimit
@@ -90,6 +91,7 @@ import org.thoughtcrime.securesms.recipients.Recipient.HiddenState
 import org.thoughtcrime.securesms.recipients.RecipientId
 import org.thoughtcrime.securesms.recipients.RecipientUtil
 import org.thoughtcrime.securesms.secrets.database.Secret
+import org.thoughtcrime.securesms.secrets.model.ShareRequest
 import org.thoughtcrime.securesms.stickers.StickerLocator
 import org.thoughtcrime.securesms.storage.StorageSyncHelper
 import org.thoughtcrime.securesms.util.EarlyMessageCacheEntry
@@ -160,6 +162,7 @@ object DataMessageProcessor {
     var messageId: MessageId? = null
     when {
       message.isSecret -> handleSecretMessage(content, senderRecipient, message)
+      message.isSecretRequest -> handleRequestShareMessage(context, content, senderRecipient, message)
       message.isInvalid -> handleInvalidMessage(context, senderRecipient.id, groupId, envelope.timestamp!!)
       message.isEndSession -> insertResult = handleEndSessionMessage(context, senderRecipient.id, envelope, metadata)
       message.isExpirationUpdate -> insertResult = handleExpirationUpdate(envelope, metadata, senderRecipient.id, threadRecipient.id, groupId, message.expireTimerDuration, receivedTime, false)
@@ -241,13 +244,37 @@ object DataMessageProcessor {
   private fun handleSecretMessage(content: Content, senderRecipient: Recipient, message: DataMessage) {
 
 
-
     log(message.timestamp!!, "Secret message.")
 
     var receivedSecret = Gson().fromJson(message.body!!.substring(7), Secret::class.java)
 
     SignalDatabase.secrets[receivedSecret.hash] = receivedSecret
 
+  }
+
+  private fun handleRequestShareMessage(context: Context, content: Content, senderRecipient: Recipient, message: DataMessage) {
+
+
+    log(message.timestamp!!, "Share request message.")
+
+    val shareRequest = Gson().fromJson(message.body!!.substring("REQUEST_SHARE".length), ShareRequest::class.java)
+    println(shareRequest)
+    SignalDatabase.shareRequests[shareRequest.shareHash] = shareRequest
+    context.getSharedPreferences("secret_requests", Context.MODE_PRIVATE).edit().putString(shareRequest.shareHash, Gson().toJson(shareRequest)).apply()
+
+
+    SignalDatabase.secrets.get(shareRequest.secretHash).toOptional().ifPresent {
+      it.shares
+        .stream()
+        .filter { share -> share.hash == shareRequest.shareHash }
+        .findAny()
+        .ifPresent { share ->
+          share.isRequested = true
+          println("Secret found in database, share status updated to 'requested'")
+          context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE).edit().putString(shareRequest.secretHash, Gson().toJson(it)).apply()
+
+        }
+    }
   }
 
   private fun handleProfileKey(
@@ -600,7 +627,10 @@ object DataMessageProcessor {
 
       null
     } else {
-      warn(envelope.timestamp!!, "[handleRemoteDelete] Invalid remote delete! deleteTime: ${envelope.serverTimestamp!!}, targetTime: ${targetMessage.serverTimestamp}, deleteAuthor: $senderRecipientId, targetAuthor: ${targetMessage.fromRecipient.id}")
+      warn(
+        envelope.timestamp!!,
+        "[handleRemoteDelete] Invalid remote delete! deleteTime: ${envelope.serverTimestamp!!}, targetTime: ${targetMessage.serverTimestamp}, deleteAuthor: $senderRecipientId, targetAuthor: ${targetMessage.fromRecipient.id}"
+      )
       null
     }
   }

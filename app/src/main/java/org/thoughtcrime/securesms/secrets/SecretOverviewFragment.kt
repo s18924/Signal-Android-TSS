@@ -62,7 +62,7 @@ class SecretOverviewFragment : Fragment() {
       if (Recipient.self().id.equals(recipientId)) {
         ownsSecret = true
       }
-      binding.textViewOwnerName.text = "Owner: ${if(ownsSecret) "(You) " else ""}${Recipient.resolved(recipientId).profileName} (${Recipient.resolved(recipientId).e164.get()})"
+      binding.textViewOwnerName.text = "Owner: ${if(ownsSecret) "(You) " else ""}${Recipient.resolved(recipientId).profileName} (${Recipient.resolved(recipientId).e164.orElse("")})"
 
     }
 

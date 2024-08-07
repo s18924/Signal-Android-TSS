@@ -36,6 +36,10 @@ class SecretsLandingFragment : Fragment() {
 
 
 //    inflater.context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE).edit().clear().commit()
+
+    SignalDatabase.secrets.forEach{ it ->
+      inflater.context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE).edit().putString(it.key, Gson().toJson(it.value)).apply()
+    }
     inflater.context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE).all.values.forEach {
       val secret = Gson().fromJson(it as String, Secret::class.java)
       SignalDatabase.secrets.put(secret.hash, secret)
