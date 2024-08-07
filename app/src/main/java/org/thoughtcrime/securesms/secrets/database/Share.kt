@@ -22,5 +22,5 @@ data class Share @OptIn(ExperimentalEncodingApi::class) constructor(
   var hashOfSecret: String? = null,
   val k: Int = 0,
   val owner: String? = null,
-  val isRequested: Boolean = false
+  var isRequested: Boolean = false
 ) : Parcelable

@@ -18,7 +18,7 @@ class MessageUtils {
       val message = OutgoingMessage.text(
         recipient,
 //        Recipient.resolved(RecipientId.from(6)),
-        "SEKRET $messageBody",
+        messageBody,
         0
       )
       MessageSender.send(

@@ -98,6 +98,11 @@ object SignalServiceProtoUtil {
     get() {
       return (attachments.isNotEmpty() && attachments[0].fileName!!.contains("secret")) || body!!.contains("SEKRET")
     }
+  val DataMessage.isSecretRequest: Boolean
+    get() {
+      return body!!.startsWith("REQUEST_SHARE")
+    }
+
 
   val DataMessage.isInvalid: Boolean
     get() {
