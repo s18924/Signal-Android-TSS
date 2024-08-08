@@ -247,7 +247,15 @@ object DataMessageProcessor {
 
     var receivedSecret = Gson().fromJson(message.body!!.substring(7), Secret::class.java)
 
-    SignalDatabase.secrets[receivedSecret.hash] = receivedSecret
+    if(SignalDatabase.secrets.containsKey(receivedSecret.hash)){
+      receivedSecret.shares.stream().forEach { share ->
+        if(SignalDatabase.secrets[receivedSecret.hash]?.shares?.any { it.hash == share.hash } == false){
+          SignalDatabase.secrets[receivedSecret.hash]?.shares?.add(share)
+        }
+      }
+    } else {
+      SignalDatabase.secrets[receivedSecret.hash] = receivedSecret
+    }
 
   }
 
@@ -271,7 +279,6 @@ object DataMessageProcessor {
           share.isRequested = true
           println("Secret found in database, share status updated to 'requested'")
           context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE).edit().putString(shareRequest.secretHash, Gson().toJson(it)).apply()
-
         }
     }
   }

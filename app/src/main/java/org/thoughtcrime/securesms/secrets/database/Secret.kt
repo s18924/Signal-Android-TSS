@@ -18,7 +18,7 @@ data class Secret(
   val owner: String,
   val k: Int,
   val n: Int,
-  val shares: List<Share> = mutableListOf(),
+  val shares: MutableList<Share> = mutableListOf(),
   val hash: String = calculateHash(shares)
 ) : Parcelable {
 

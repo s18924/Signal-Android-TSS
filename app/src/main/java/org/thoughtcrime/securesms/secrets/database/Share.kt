@@ -18,7 +18,7 @@ data class Share @OptIn(ExperimentalEncodingApi::class) constructor(
   val data: ByteArray,
   val hash: String = Base64.encode(AesCryptoUtils.getInstance().hash(data)),
   var isShared: Boolean = false,
-  val sharedWithServiceId: String? = null,
+  var sharedWithServiceId: String? = null,
   var hashOfSecret: String? = null,
   val k: Int = 0,
   val owner: String? = null,
