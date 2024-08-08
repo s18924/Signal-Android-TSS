@@ -7,9 +7,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.LifecycleOwner
 import androidx.recyclerview.widget.RecyclerView
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
@@ -25,22 +27,16 @@ import org.thoughtcrime.securesms.recipients.RecipientId
 import org.thoughtcrime.securesms.secrets.database.Secret
 import org.thoughtcrime.securesms.secrets.database.Share
 import org.thoughtcrime.securesms.secrets.model.ShareRequest
+import org.thoughtcrime.securesms.util.getLifecycle
+import org.whispersystems.signalservice.api.push.ServiceId
 import pjatk.secret.crypto.RsaCryptoUtils
 import kotlin.io.encoding.ExperimentalEncodingApi
 
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
-
 class FragmentShareOverview : Fragment() {
-  private var param1: String? = null
-  private var param2: String? = null
+
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    arguments?.let {
-      param1 = it.getString(ARG_PARAM1)
-      param2 = it.getString(ARG_PARAM2)
-    }
   }
 
   override fun onCreateView(
@@ -55,8 +51,7 @@ class FragmentShareOverview : Fragment() {
     fun newInstance(param1: String, param2: String) =
       FragmentShareOverview().apply {
         arguments = Bundle().apply {
-          putString(ARG_PARAM1, param1)
-          putString(ARG_PARAM2, param2)
+
         }
       }
   }
@@ -75,6 +70,12 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
     val removeButton: Button = itemView.findViewById(R.id.button_removeShare)
     val contactsSpinner: Spinner = itemView.findViewById(R.id.spinner_contacts)
     val isShared: TextView = itemView.findViewById(R.id.textView_isShared)
+    val checkboxKey: CheckBox = itemView.findViewById(R.id.checkBox_key)
+    val checkboxShare: CheckBox = itemView.findViewById(R.id.checkBox_share)
+    val shareRequestsPreferences = itemView.context.getSharedPreferences("share_requests", Context.MODE_PRIVATE)
+    val sharedPrefsShareKey = itemView.context.getSharedPreferences("share_private_keys", Context.MODE_PRIVATE)
+    val secretSharedPreferences = itemView.context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE)
+
   }
 
   override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -85,8 +86,6 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
   @OptIn(ExperimentalEncodingApi::class)
   override fun onBindViewHolder(holder: ViewHolder, position: Int) {
     val share = shares[position]
-    holder.shareHashTextView.text = share.hash
-    isOwner = share.owner == Recipient.self().aci.get().toString()
 
     if (isOwner) {
       holder.isShared.text = if (share.isShared) "Already shared" else "Not shared"
@@ -108,28 +107,28 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
     val spinner = holder.contactsSpinner
     spinner.adapter = adapter
 
-    if (isOwner) {
-      holder.shareButton.setOnClickListener {
-        if (share.isShared) {
-          //Request share
+    updateView(holder, share)
+
+
+    holder.shareButton.setOnClickListener {
+      if (isOwner) {
+        if (share.isShared) {  //Request share
           requestShare(share, holder)
-//          requestDecryptionKey(holder, share)
         } else {
-          shareShareWithTrustee(share, holder)
+          shareShareWithTrustee(share, holder) //Share share
         }
-      }
-    } else {
-      holder.shareButton.setOnClickListener {
-
-        if (share.isRequested) {
-          requestDecryptionKey(holder, share) //request key from access machine
-        } else {
-          //nothing?
+      } else {
+        holder.shareButton.setOnClickListener {
+          if (share.isRequested) {
+            requestDecryptionKey(holder, share) //request key from access machine
+          } else {
+            //nothing?
 //          shareShareWithTrustee(share, holder)
-
+          }
         }
-        updateShareStatus(holder, share)
+
       }
+      updateView(holder, share)
 
     }
 
@@ -155,8 +154,11 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
             println("Recrypted key found, persisting it to share request")
             val sharedPreferences = holder.itemView.context.getSharedPreferences("secret_requests", Context.MODE_PRIVATE)
             var shareRequest = Gson().fromJson<ShareRequest>(sharedPreferences.getString(share.hash, ""), ShareRequest::class.java)
-            shareRequest.recryptedKey = body?.recryptedKey?.decodeBase64()?.toByteArray()
-            sharedPreferences.edit().putString(share.hash, Gson().toJson(shareRequest)).apply()
+            shareRequest.toOptional().ifPresent {
+              shareRequest.recryptedKey = body?.recryptedKey?.decodeBase64()?.toByteArray()
+              sharedPreferences.edit().putString(share.hash, Gson().toJson(shareRequest)).apply()
+              holder.checkboxKey.isChecked = true
+            }
           }
           if (body != null) {
             holder.isShared.text = body.message
@@ -176,13 +178,51 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
     holder.removeButton.setOnClickListener { requestShare(share, holder) }
   }
 
+  private fun updateView(holder: ViewHolder, share: Share) {
+    holder.shareHashTextView.text = share.hash
+    isOwner = share.owner == Recipient.self().aci.get().toString()
+
+
+    if (isOwner) {
+      holder.checkboxShare.isChecked = !share.isShared
+      holder.isShared.text = if (share.isShared) "Already shared" else "Not shared"
+      holder.shareButton.text = if (share.isShared) "request" else "share"
+    } else {
+      holder.checkboxShare.isChecked = true
+      holder.contactsSpinner.setSelection((holder.contactsSpinner.adapter as RecipientAdapter).getSharePosition(share))
+      holder.contactsSpinner.isEnabled = false;
+      holder.isShared.text = if (share.isShared) "Shared with you" else ""
+      if (share.isRequested) {
+        holder.isShared.text = "Share requested!"
+        holder.shareButton.isEnabled = true;
+        holder.downloadButton.isEnabled = true
+        holder.downloadButton.text = "Update"
+      } else {
+        holder.shareButton.isEnabled = false;
+        holder.downloadButton.isEnabled = false;
+
+      }
+      holder.shareButton.text = if (share.isRequested) "Fetch key. " else "Not requested"
+    }
+
+
+  }
+
   private fun updateShareStatus(holder: ViewHolder, share: Share) {
-    val sharedPrefs = holder.itemView.context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE)
-    var shareString = sharedPrefs.getString(share.hashOfSecret, "")
-    var secret = Gson().fromJson<Secret>(shareString, Secret::class.java)
-    secret.shares.find { it -> it.hash == share.hash }?.isShared = true
-    sharedPrefs.edit().putString(share.hashOfSecret, Gson().toJson(secret)).apply()
-    println("!! " + Gson().toJson(secret))
+
+    SignalDatabase.secrets[share.hashOfSecret]?.let {
+      holder.secretSharedPreferences.edit().putString(share.hashOfSecret, Gson().toJson(it)).apply()
+      println(Gson().toJson(it))
+    }
+
+    /*
+        var secretString = holder.secretSharedPreferences.getString(share.hashOfSecret, "")
+        var secret = Gson().fromJson<Secret>(secretString, Secret::class.java)
+        share.isShared = true
+        secret.shares.find { it -> it.hash == share.hash }?.isShared = true
+        holder.secretSharedPreferences.edit().putString(share.hashOfSecret, Gson().toJson(secret)).apply()
+        println("!! " + Gson().toJson(secret))
+    */
   }
 
   private fun shareShareWithTrustee(share: Share, holder: ViewHolder) {
@@ -194,21 +234,31 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
       mutableListOf(share)
     )
 
+    val recipient = Recipient.resolved(holder.contactsSpinner.selectedItem as RecipientId)
 
-    MessageUtils.sendMessage(Recipient.resolved(holder.contactsSpinner.selectedItem as RecipientId), "SEKRET " + Gson().toJson(secret))
+    MessageUtils.sendMessage(
+      recipient,
+      "SEKRET " + Gson().toJson(secret)
+    )
+
+    share.sharedWithServiceId = recipient.aci.get().toString()
     share.isShared = true
-    holder.isShared.text = if (share.isShared) "Already shared" else "Not shared"
-
-    holder.shareButton.text = "request"
 
     updateShareStatus(holder, share)
   }
 
+  /**
+   * Requests a share from the trustee.
+   * Sends a message in format "REQUEST_SHARE {shareRequest}" containing
+   *  - encrypted share hash.
+   *  - hash of the secret that share is part of
+   *  - requestor (self)
+   *  - public key of the requestor (self, generated here)
+   */
   private fun requestShare(share: Share, holder: ViewHolder) {
     var keys = RsaCryptoUtils.getInstance().generateKeyPair()
-    val sharedPrefsShareKey = holder.itemView.context.getSharedPreferences("share_private_keys", Context.MODE_PRIVATE)
-    sharedPrefsShareKey.edit().putString(share.hash, keys.private.encoded.toString()).apply()
-    println(sharedPrefsShareKey.all)
+    holder.sharedPrefsShareKey.edit().putString(share.hash, keys.private.encoded.toString()).apply()
+    println(holder.sharedPrefsShareKey.all)
 
     var shareRequest = ShareRequest(
       Recipient.self().aci.get().toString(),
@@ -257,18 +307,25 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
   }
 }
 
-class RecipientAdapter(context: Context, recipients: Array<RecipientId>) : ArrayAdapter<RecipientId>(context, 0, recipients) {
+class RecipientAdapter(context: Context, private val recipients: Array<RecipientId>) : ArrayAdapter<RecipientId>(context, 0, recipients) {
   override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
     val recipient = getItem(position)
     val view = convertView ?: LayoutInflater.from(context).inflate(android.R.layout.simple_spinner_item, parent, false)
     val textView = view.findViewById<TextView>(android.R.id.text1)
 
-    "${SignalDatabase.recipients.getRecord(recipient!!).signalProfileName} - ${recipient}".also { textView.text = it }
+    "${SignalDatabase.recipients.getRecord(recipient!!).signalProfileName} - ${recipient.toLong()}".also { textView.text = it }
 
     return view
   }
 
   override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
     return getView(position, convertView, parent)
+  }
+
+  fun getSharePosition(share: Share): Int {
+    return share.toOptional()
+      .map { s -> s.owner }
+      .map { s -> recipients.indexOf(RecipientId.from(ServiceId.Companion.parseOrThrow(s!!))) }
+      .orElse(0)
   }
 }

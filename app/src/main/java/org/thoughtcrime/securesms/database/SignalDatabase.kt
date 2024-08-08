@@ -3,6 +3,7 @@ package org.thoughtcrime.securesms.database
 import android.app.Application
 import android.content.Context
 import androidx.annotation.VisibleForTesting
+import androidx.lifecycle.MutableLiveData
 import net.zetetic.database.sqlcipher.SQLiteOpenHelper
 import org.signal.core.util.SqlUtil
 import org.signal.core.util.logging.Log
@@ -363,6 +364,8 @@ open class SignalDatabase(private val context: Application, databaseSecret: Data
       get() = instance!!.attachmentTable
 
     val secrets: MutableMap<String,Secret> = mutableMapOf()
+    val liveSecrets: MutableLiveData<MutableMap<String, Secret>> = MutableLiveData(secrets).apply { value = secrets }
+
     val shareRequests: MutableMap<String,ShareRequest> = mutableMapOf()
 
 
