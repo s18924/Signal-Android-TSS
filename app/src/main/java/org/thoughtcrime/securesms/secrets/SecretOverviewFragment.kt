@@ -44,7 +44,7 @@ class SecretOverviewFragment : Fragment() {
     binding.textViewShareK.text = "Number of shares needed to recreate: ${secret?.k.toString()}"
     binding.textViewShareN.text = "Total shares: ${secret?.n.toString()}"
 
-    var sharesAvailable = secret!!.shares.stream().filter { !it.isShared }.count()
+    var sharesAvailable = secret!!.shares.stream().filter { it.isReturned }.count()
     if(sharesAvailable < secret.k){
       binding.buttonRecreate.isEnabled = false
       binding.buttonRecreate.text = "${sharesAvailable}/${secret.k} shares available - can not be recreated "

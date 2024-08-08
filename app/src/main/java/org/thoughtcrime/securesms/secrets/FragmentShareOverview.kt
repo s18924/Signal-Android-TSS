@@ -11,6 +11,7 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.Spinner
 import android.widget.TextView
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.RecyclerView
 import com.google.gson.Gson
@@ -27,6 +28,7 @@ import org.thoughtcrime.securesms.recipients.RecipientId
 import org.thoughtcrime.securesms.secrets.database.Secret
 import org.thoughtcrime.securesms.secrets.database.Share
 import org.thoughtcrime.securesms.secrets.model.ShareRequest
+import org.thoughtcrime.securesms.secrets.model.Status
 import org.whispersystems.signalservice.api.push.ServiceId
 import pjatk.secret.crypto.RsaCryptoUtils
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -113,24 +115,26 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
 
         println("!! $response ${response.body()}")
 
-        val body = response.body()
-        body.toOptional().ifPresent {
-          if (it.recryptedKey != null) {
-            println("Recrypted key found, persisting it to share request")
-            val sharedPreferences = holder.itemView.context.getSharedPreferences("secret_requests", Context.MODE_PRIVATE)
-            val shareRequest = Gson().fromJson(sharedPreferences.getString(share.hash, ""), ShareRequest::class.java)
-            shareRequest.toOptional().ifPresent {
-              shareRequest.recryptedKey = body?.recryptedKey?.decodeBase64()?.toByteArray()
-              sharedPreferences.edit().putString(share.hash, Gson().toJson(shareRequest)).apply()
-              holder.checkboxKey.isChecked = true
+        response.body()?.let { body ->
+          holder.isShared.text = body.message
+
+          body.recryptedKey.let { key ->
+            run {
+              println("Recrypted key found, persisting it to share request")
+              val shareRequest = Gson().fromJson(holder.decryptionKeyRequestPreferences.getString(share.hash, ""), ShareRequest::class.java)
+
+              shareRequest?.let {
+                shareRequest.recryptedKey = key.decodeBase64()?.toByteArray()
+                shareRequest.status = Status.SUCCESS
+                holder.decryptionKeyRequestPreferences.edit().putString(share.hash, Gson().toJson(shareRequest)).apply()
+                holder.checkboxKey.isChecked = true
+              }
             }
           }
-          if (body != null) {
-            holder.isShared.text = body.message
-          }
         }
-        updateView(holder, share)
+
       }
+        updateView(holder, share)
     }
 
     holder.removeButton.setOnClickListener {
@@ -142,7 +146,7 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
   private fun sendBack(share: Share, holder: ViewHolder) { //TODO
     val response = holder.decryptionKeyRequestPreferences.getString(share.hash, "")
     println("Sending back encrypted key and encrypted share to owner $response")
-    MessageUtils.sendMessage(Recipient.resolved(holder.contactsSpinner.selectedItem as RecipientId), "SEND_BACK $response")
+    MessageUtils.sendMessage(Recipient.resolved(holder.contactsSpinner.selectedItem as RecipientId), "RESPONSE_SHARE $response")
   }
 
   private fun updateView(holder: ViewHolder, share: Share) {
@@ -151,6 +155,7 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
 
 
     if (isOwner) {
+      holder.downloadButton.isVisible = false
       holder.checkboxShare.isChecked = !share.isShared
       holder.isShared.text = if (share.isShared) "Already shared" else "Not shared"
       holder.shareButton.text = if (share.isShared) "request" else "share"
@@ -158,6 +163,14 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
         holder.shareButton.text = "Requested"
         holder.shareButton.isEnabled = false
         holder.contactsSpinner.setSelection((holder.contactsSpinner.adapter as RecipientAdapter).getTrusteePosition(share))
+        if(share.isReturned){
+          holder.isShared.text = "Returned"
+          holder.downloadButton.text = "Returned"
+          holder.checkboxShare.isChecked = true
+          holder.checkboxKey.isChecked = true
+
+
+        }
       }
     } else {
       holder.shareButton.text = if (share.isRequested) "Fetch key. " else "Not requested"
@@ -238,9 +251,9 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
     )
 
     println("Share requested ${shareRequest}")
+    share.isRequested = true
     MessageUtils.sendMessage(Recipient.resolved(holder.contactsSpinner.selectedItem as RecipientId), "REQUEST_SHARE " + Gson().toJson(shareRequest))
 
-    share.isRequested = true
     updateShareStatus(holder, share)
   }
 
@@ -260,6 +273,7 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
       println("!! " + response)
 
       decryptionRequest.transactionId = response.body()
+      decryptionRequest.status = Status.IN_PROGRESS
       holder.decryptionKeyRequestPreferences.edit().putString(share.hash, Gson().toJson(decryptionRequest)).apply()
 
       println(decryptionRequest)
