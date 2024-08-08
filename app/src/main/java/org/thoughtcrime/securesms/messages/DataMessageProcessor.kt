@@ -246,7 +246,7 @@ object DataMessageProcessor {
 
     log(message.timestamp!!, "Secret message.")
 
-    var receivedSecret = Gson().fromJson(message.body!!.substring(7), Secret::class.java)
+    val receivedSecret = Gson().fromJson(message.body!!.substring(7), Secret::class.java)
 
     if(SignalDatabase.secrets.containsKey(receivedSecret.hash)){
       receivedSecret.shares.stream().forEach { share ->
@@ -268,7 +268,7 @@ object DataMessageProcessor {
     val shareRequest = Gson().fromJson(message.body!!.substring("REQUEST_SHARE".length), ShareRequest::class.java)
     println(shareRequest)
     SignalDatabase.shareRequests[shareRequest.shareHash] = shareRequest
-    context.getSharedPreferences("secret_requests", Context.MODE_PRIVATE).edit().putString(shareRequest.shareHash, Gson().toJson(shareRequest)).apply()
+    context.getSharedPreferences("decryptionKey_requests", Context.MODE_PRIVATE).edit().putString(shareRequest.shareHash, Gson().toJson(shareRequest)).apply()
 
 
     SignalDatabase.secrets.get(shareRequest.secretHash).toOptional().ifPresent {
