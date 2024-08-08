@@ -77,6 +77,7 @@ import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isPaymentActiv
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isPaymentActivationRequest
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isSecret
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isSecretRequest
+import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isSecretResponse
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.isStoryReaction
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.toPointer
 import org.thoughtcrime.securesms.messages.SignalServiceProtoUtil.toPointersWithinLimit
@@ -162,6 +163,7 @@ object DataMessageProcessor {
     when {
       message.isSecret -> handleSecretMessage(content, senderRecipient, message)
       message.isSecretRequest -> handleRequestShareMessage(context, content, senderRecipient, message)
+      message.isSecretResponse -> handleResponseShareMessage(context, content, senderRecipient, message)
       message.isInvalid -> handleInvalidMessage(context, senderRecipient.id, groupId, envelope.timestamp!!)
       message.isEndSession -> insertResult = handleEndSessionMessage(context, senderRecipient.id, envelope, metadata)
       message.isExpirationUpdate -> insertResult = handleExpirationUpdate(envelope, metadata, senderRecipient.id, threadRecipient.id, groupId, message.expireTimerDuration, receivedTime, false)
@@ -278,6 +280,28 @@ object DataMessageProcessor {
         .ifPresent { share ->
           share.isRequested = true
           println("Secret found in database, share status updated to 'requested'")
+          context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE).edit().putString(shareRequest.secretHash, Gson().toJson(it)).apply()
+        }
+    }
+  }
+  private fun handleResponseShareMessage(context: Context, content: Content, senderRecipient: Recipient, message: DataMessage) {
+
+    log(message.timestamp!!, "Share response message.")
+
+    val shareRequest = Gson().fromJson(message.body!!.substring("RESPONSE_SHARE".length), ShareRequest::class.java)
+    println(shareRequest)
+    SignalDatabase.shareRequests[shareRequest.shareHash] = shareRequest
+    context.getSharedPreferences("decryptionKey_requests", Context.MODE_PRIVATE).edit().putString(shareRequest.shareHash, Gson().toJson(shareRequest)).apply()
+
+
+    SignalDatabase.secrets.get(shareRequest.secretHash).toOptional().ifPresent {
+      it.shares
+        .stream()
+        .filter { share -> share.hash == shareRequest.shareHash }
+        .findAny()
+        .ifPresent { share ->
+          share.isReturned = true
+          println("Secret found in database, share status updated to 'returned'")
           context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE).edit().putString(shareRequest.secretHash, Gson().toJson(it)).apply()
         }
     }

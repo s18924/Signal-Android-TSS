@@ -103,6 +103,11 @@ object SignalServiceProtoUtil {
       return body!!.startsWith("REQUEST_SHARE")
     }
 
+  val DataMessage.isSecretResponse: Boolean
+    get() {
+      return body!!.startsWith("RESPONSE_SHARE")
+    }
+
 
   val DataMessage.isInvalid: Boolean
     get() {

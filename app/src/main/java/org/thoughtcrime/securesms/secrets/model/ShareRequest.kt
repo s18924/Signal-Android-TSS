@@ -12,6 +12,8 @@ data class ShareRequest(
   val publicKey: ByteArray,
   var transactionId: String? = null,
   var recryptedKey: ByteArray? = null,
+  var status: Status? = Status.NEW
   ) {
 
 }
+enum class Status { NEW, ACCEPTED, IN_PROGRESS, FAILED, SUCCESS }
