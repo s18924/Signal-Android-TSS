@@ -30,7 +30,13 @@ import org.thoughtcrime.securesms.secrets.database.Share
 import org.thoughtcrime.securesms.secrets.model.ShareRequest
 import org.thoughtcrime.securesms.secrets.model.Status
 import org.whispersystems.signalservice.api.push.ServiceId
+import pjatk.secret.crypto.AesCryptoUtils
 import pjatk.secret.crypto.RsaCryptoUtils
+import java.security.KeyFactory
+import java.security.KeyPair
+import java.security.spec.PKCS8EncodedKeySpec
+import javax.crypto.spec.SecretKeySpec
+import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 class FragmentShareOverview : Fragment() {
@@ -57,7 +63,7 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
     val isShared: TextView = itemView.findViewById(R.id.textView_isShared)
     val checkboxKey: CheckBox = itemView.findViewById(R.id.checkBox_key)
     val checkboxShare: CheckBox = itemView.findViewById(R.id.checkBox_share)
-    val shareRequestsPreferences: SharedPreferences = itemView.context.getSharedPreferences("share_requests", Context.MODE_PRIVATE)
+//    val shareRequestsPreferences: SharedPreferences = itemView.context.getSharedPreferences("share_requests", Context.MODE_PRIVATE)/**/
     val sharedPrefsShareKey: SharedPreferences = itemView.context.getSharedPreferences("share_private_keys", Context.MODE_PRIVATE)
     val secretSharedPreferences: SharedPreferences = itemView.context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE)
     val decryptionKeyRequestPreferences: SharedPreferences = itemView.context.getSharedPreferences("decryptionKey_requests", Context.MODE_PRIVATE)
@@ -107,38 +113,52 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
 
 
     holder.downloadButton.setOnClickListener {
+      val request = holder.decryptionKeyRequestPreferences.getString(share.hash, "")
+      val requestObject = Gson().fromJson(request, ShareRequest::class.java)
       coroutineScope.launch {
-        println("Checking secret key request status with transactionId ${holder.shareRequestsPreferences.getString(share.hash, "")} and data hash ${share.hash}")
+        println("Checking secret key request status with transactionId ${requestObject?.transactionId} and data hash ${share.hash}")
         val response = SecretServerApiUtils.makeApiRequest {
-          SecretServerApiUtils.apiService.secretKeyResponse(holder.shareRequestsPreferences.getString(share.hash, "2e7aca1f98115381555dff8b6dc560cc6e79dbd6083b6ca20f752e1faa43cae8")!!)
+          SecretServerApiUtils.apiService.secretKeyResponse(requestObject.transactionId!!)
         }
 
         println("!! $response ${response.body()}")
 
         response.body()?.let { body ->
-          holder.isShared.text = body.message
+          holder.isShared.text = response.body()!!.message
 
-          body.recryptedKey.let { key ->
-            run {
-              println("Recrypted key found, persisting it to share request")
-              val shareRequest = Gson().fromJson(holder.decryptionKeyRequestPreferences.getString(share.hash, ""), ShareRequest::class.java)
+          body.recryptedKey?.let { key ->
+            println("Recrypted key found, persisting it to share request")
 
-              shareRequest?.let {
-                shareRequest.recryptedKey = key.decodeBase64()?.toByteArray()
-                shareRequest.status = Status.SUCCESS
-                holder.decryptionKeyRequestPreferences.edit().putString(share.hash, Gson().toJson(shareRequest)).apply()
-                holder.checkboxKey.isChecked = true
-              }
+            requestObject?.let {
+              requestObject.recryptedKey = key.decodeBase64()?.toByteArray()
+              requestObject.status = Status.SUCCESS
+              holder.decryptionKeyRequestPreferences.edit().putString(share.hash, Gson().toJson(requestObject)).apply()
+              holder.checkboxKey.isChecked = true
             }
           }
         }
-
-      }
         updateView(holder, share)
+      }
     }
 
     holder.removeButton.setOnClickListener {
-      requestShare(share, holder)
+//      decrypt key
+
+      val request = Gson().fromJson(holder.decryptionKeyRequestPreferences.getString(share.hash,""), ShareRequest::class.java)
+      val privateRecryptionKey = holder.sharedPrefsShareKey.getString(share.hash, "")
+
+      var privateKey = KeyFactory.getInstance("RSA").generatePrivate(PKCS8EncodedKeySpec(Base64.decode(privateRecryptionKey!!)))
+
+      var shareDecryptionKey = RsaCryptoUtils.getInstance().decrypt(request.recryptedKey!!, privateKey)
+      var decryptionKeyObject = SecretKeySpec(shareDecryptionKey, "AES")
+      var decryptedShare = AesCryptoUtils.getInstance().decrypt(share.data, decryptionKeyObject)
+
+      share.decryptedData = decryptedShare
+      share.isDecrypted = true
+
+      println("DECRYPTED! ")
+
+      //requestShare(share, holder)
       updateView(holder, share)
     }
   }
@@ -165,7 +185,7 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
         holder.contactsSpinner.setSelection((holder.contactsSpinner.adapter as RecipientAdapter).getTrusteePosition(share))
         if(share.isReturned){
           holder.isShared.text = "Returned"
-          holder.downloadButton.text = "Returned"
+          holder.shareButton.text = "Returned"
           holder.checkboxShare.isChecked = true
           holder.checkboxKey.isChecked = true
 
@@ -174,7 +194,7 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
       }
     } else {
       holder.shareButton.text = if (share.isRequested) "Fetch key. " else "Not requested"
-
+      holder.downloadButton.isEnabled = false
       holder.checkboxShare.isChecked = true
       holder.contactsSpinner.setSelection((holder.contactsSpinner.adapter as RecipientAdapter).getSharePosition(share))
       holder.contactsSpinner.isEnabled = false
@@ -182,11 +202,11 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
       if (share.isRequested) {
         holder.isShared.text = "Share requested!"
         holder.shareButton.isEnabled = true
-        holder.downloadButton.isEnabled = true
         holder.downloadButton.text = "Update"
         if(share.isForwardedToAccessMachine) {
           holder.shareButton.isEnabled = false
           holder.shareButton.text = "Send back (key needed)"
+          holder.downloadButton.isEnabled = true
 
           if(holder.checkboxShare.isChecked && holder.checkboxKey.isChecked){
             holder.shareButton.isEnabled = true
@@ -238,9 +258,10 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
    *  - requestor (self)
    *  - public key of the requestor (self, generated here)
    */
+  @OptIn(ExperimentalEncodingApi::class)
   private fun requestShare(share: Share, holder: ViewHolder) {
     val keys = RsaCryptoUtils.getInstance().generateKeyPair()
-    holder.sharedPrefsShareKey.edit().putString(share.hash, keys.private.encoded.toString()).apply()
+    holder.sharedPrefsShareKey.edit().putString(share.hash, Base64.encode(keys.private.encoded)).apply()
     println(holder.sharedPrefsShareKey.all)
 
     val shareRequest = ShareRequest(

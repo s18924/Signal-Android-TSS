@@ -19,7 +19,8 @@ data class Secret(
   val k: Int,
   val n: Int,
   val shares: MutableList<Share> = mutableListOf(),
-  val hash: String = calculateHash(shares)
+  val hash: String = calculateHash(shares),
+  var recreatedSecret: ByteArray? = null
 ) : Parcelable {
 
 
