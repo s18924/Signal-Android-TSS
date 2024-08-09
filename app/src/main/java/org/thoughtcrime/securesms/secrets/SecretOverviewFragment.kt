@@ -7,12 +7,15 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.codahale.shamir.Scheme
 import kotlinx.coroutines.launch
 import org.thoughtcrime.securesms.databinding.FragmentSecretOverviewBinding
 import org.thoughtcrime.securesms.recipients.Recipient
 import org.thoughtcrime.securesms.recipients.RecipientId
 import org.thoughtcrime.securesms.secrets.database.Secret
 import org.whispersystems.signalservice.api.push.ServiceId
+import java.security.SecureRandom
+import java.util.stream.Collectors
 
 private const val ARG_PARAM1 = "param1"
 private const val ARG_PARAM2 = "param2"
@@ -44,13 +47,30 @@ class SecretOverviewFragment : Fragment() {
     binding.textViewShareK.text = "Number of shares needed to recreate: ${secret?.k.toString()}"
     binding.textViewShareN.text = "Total shares: ${secret?.n.toString()}"
 
-    var sharesAvailable = secret!!.shares.stream().filter { it.isReturned }.count()
+    var sharesAvailable = secret!!.shares.stream().filter { it.isDecrypted }.count()
     if(sharesAvailable < secret.k){
       binding.buttonRecreate.isEnabled = false
       binding.buttonRecreate.text = "${sharesAvailable}/${secret.k} shares available - can not be recreated "
     }else{
       binding.buttonRecreate.isEnabled = true
       binding.buttonRecreate.text = "${sharesAvailable}/${secret.k} shares available - recreate!"
+    }
+
+    binding.buttonRecreate.setOnClickListener {
+      var recreatedSecret = Scheme(SecureRandom(), secret.n, secret.k).join(
+        secret.shares.stream()
+          .collect(
+            Collectors.toMap(
+        { secret.shares.indexOf(it) },
+        { it.decryptedData }
+      )
+          )
+      )
+
+      println("!!!! RECREATED! ${recreatedSecret.contentToString()}")
+      secret.recreatedSecret = recreatedSecret
+
+
 
     }
 
