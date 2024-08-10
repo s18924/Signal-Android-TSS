@@ -100,7 +100,7 @@ object SignalServiceProtoUtil {
     }
   val DataMessage.isSecretRequest: Boolean
     get() {
-      return body!!.startsWith("REQUEST_SHARE")
+      return body!!.startsWith("REQUEST_FOR_SHARE_AES_KEY")
     }
 
   val DataMessage.isSecretResponse: Boolean

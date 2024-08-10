@@ -1,6 +1,7 @@
 package org.thoughtcrime.securesms.secrets
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -11,6 +12,7 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.Spinner
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.RecyclerView
@@ -33,7 +35,6 @@ import org.whispersystems.signalservice.api.push.ServiceId
 import pjatk.secret.crypto.AesCryptoUtils
 import pjatk.secret.crypto.RsaCryptoUtils
 import java.security.KeyFactory
-import java.security.KeyPair
 import java.security.spec.PKCS8EncodedKeySpec
 import javax.crypto.spec.SecretKeySpec
 import kotlin.io.encoding.Base64
@@ -64,7 +65,7 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
     val checkboxKey: CheckBox = itemView.findViewById(R.id.checkBox_key)
     val checkboxShare: CheckBox = itemView.findViewById(R.id.checkBox_share)
 //    val shareRequestsPreferences: SharedPreferences = itemView.context.getSharedPreferences("share_requests", Context.MODE_PRIVATE)/**/
-    val sharedPrefsShareKey: SharedPreferences = itemView.context.getSharedPreferences("share_private_keys", Context.MODE_PRIVATE)
+    val privateRsaKeysForShares: SharedPreferences = itemView.context.getSharedPreferences("share_private_keys", Context.MODE_PRIVATE)
     val secretSharedPreferences: SharedPreferences = itemView.context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE)
     val decryptionKeyRequestPreferences: SharedPreferences = itemView.context.getSharedPreferences("decryptionKey_requests", Context.MODE_PRIVATE)
 
@@ -123,8 +124,12 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
 
         println("!! $response ${response.body()}")
 
+        if(response.body() != null){
+          Toast.makeText(holder.itemView.context, response.body()?.message, Toast.LENGTH_LONG).show()
+        }
+
         response.body()?.let { body ->
-          holder.isShared.text = response.body()!!.message
+          holder.isShared.text = body.message
 
           body.recryptedKey?.let { key ->
             println("Recrypted key found, persisting it to share request")
@@ -145,9 +150,12 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
 //      decrypt key
 
       val request = Gson().fromJson(holder.decryptionKeyRequestPreferences.getString(share.hash,""), ShareRequest::class.java)
-      val privateRecryptionKey = holder.sharedPrefsShareKey.getString(share.hash, "")
+      val privateRecryptionKey = holder.privateRsaKeysForShares.getString(share.hash, "")
+      var decoded = Base64.decode(privateRecryptionKey!!)
 
-      var privateKey = KeyFactory.getInstance("RSA").generatePrivate(PKCS8EncodedKeySpec(Base64.decode(privateRecryptionKey!!)))
+      val pkcS8EncodedKeySpec = PKCS8EncodedKeySpec(decoded)
+
+      var privateKey = KeyFactory.getInstance("RSA").generatePrivate(pkcS8EncodedKeySpec)
 
       var shareDecryptionKey = RsaCryptoUtils.getInstance().decrypt(request.recryptedKey!!, privateKey)
       var decryptionKeyObject = SecretKeySpec(shareDecryptionKey, "AES")
@@ -252,7 +260,7 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
 
   /**
    * Requests a share from the trustee.
-   * Sends a message in format "REQUEST_SHARE {shareRequest}" containing
+   * Sends a message in format "REQUEST_FOR_SHARE_AES_KEY {shareRequest}" containing
    *  - encrypted share hash.
    *  - hash of the secret that share is part of
    *  - requestor (self)
@@ -261,8 +269,7 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
   @OptIn(ExperimentalEncodingApi::class)
   private fun requestShare(share: Share, holder: ViewHolder) {
     val keys = RsaCryptoUtils.getInstance().generateKeyPair()
-    holder.sharedPrefsShareKey.edit().putString(share.hash, Base64.encode(keys.private.encoded)).apply()
-    println(holder.sharedPrefsShareKey.all)
+    holder.privateRsaKeysForShares.edit().putString(share.hash, Base64.encode(keys.private.encoded)).apply()
 
     val shareRequest = ShareRequest(
       Recipient.self().aci.get().toString(),
@@ -273,7 +280,7 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
 
     println("Share requested ${shareRequest}")
     share.isRequested = true
-    MessageUtils.sendMessage(Recipient.resolved(holder.contactsSpinner.selectedItem as RecipientId), "REQUEST_SHARE " + Gson().toJson(shareRequest))
+    MessageUtils.sendMessage(Recipient.resolved(holder.contactsSpinner.selectedItem as RecipientId), "REQUEST_FOR_SHARE_AES_KEY " + Gson().toJson(shareRequest))
 
     updateShareStatus(holder, share)
   }

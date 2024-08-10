@@ -1,6 +1,7 @@
 package org.thoughtcrime.securesms.secrets
 
 import android.os.Bundle
+import android.os.Environment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -14,6 +15,9 @@ import org.thoughtcrime.securesms.recipients.Recipient
 import org.thoughtcrime.securesms.recipients.RecipientId
 import org.thoughtcrime.securesms.secrets.database.Secret
 import org.whispersystems.signalservice.api.push.ServiceId
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.Paths
 import java.security.SecureRandom
 import java.util.stream.Collectors
 
@@ -48,29 +52,35 @@ class SecretOverviewFragment : Fragment() {
     binding.textViewShareN.text = "Total shares: ${secret?.n.toString()}"
 
     var sharesAvailable = secret!!.shares.stream().filter { it.isDecrypted }.count()
-    if(sharesAvailable < secret.k){
+    if (sharesAvailable < secret.k) {
       binding.buttonRecreate.isEnabled = false
       binding.buttonRecreate.text = "${sharesAvailable}/${secret.k} shares available - can not be recreated "
-    }else{
+    } else {
       binding.buttonRecreate.isEnabled = true
       binding.buttonRecreate.text = "${sharesAvailable}/${secret.k} shares available - recreate!"
     }
 
     binding.buttonRecreate.setOnClickListener {
-      var recreatedSecret = Scheme(SecureRandom(), secret.n, secret.k).join(
-        secret.shares.stream()
-          .collect(
-            Collectors.toMap(
-        { secret.shares.indexOf(it) },
-        { it.decryptedData }
-      )
-          )
-      )
+      var recreatedSecret = Scheme(SecureRandom(), secret.n, secret.k)
+        .join(
+          secret.shares
+            .stream()
+            .filter { it.isDecrypted }
+            .collect(
+              Collectors.toMap(
+                { secret.shares.indexOf(it)+1 },
+                { it.decryptedData })
+            )
+        )
 
       println("!!!! RECREATED! ${recreatedSecret.contentToString()}")
       secret.recreatedSecret = recreatedSecret
 
-
+      if (Environment.getExternalStorageState() == Environment.MEDIA_MOUNTED) {
+        val file = File(requireContext().getExternalFilesDir(null), "secretX.txt")
+        file.writeBytes(recreatedSecret)
+        println(file.absolutePath )
+      }
 
     }
 
@@ -82,7 +92,7 @@ class SecretOverviewFragment : Fragment() {
       if (Recipient.self().id.equals(recipientId)) {
         ownsSecret = true
       }
-      binding.textViewOwnerName.text = "Owner: ${if(ownsSecret) "(You) " else ""}${Recipient.resolved(recipientId).profileName} (${Recipient.resolved(recipientId).e164.orElse("")})"
+      binding.textViewOwnerName.text = "Owner: ${if (ownsSecret) "(You) " else ""}${Recipient.resolved(recipientId).profileName} (${Recipient.resolved(recipientId).e164.orElse("")})"
 
     }
 
