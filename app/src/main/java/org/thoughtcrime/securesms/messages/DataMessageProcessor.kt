@@ -267,7 +267,7 @@ object DataMessageProcessor {
 
     log(message.timestamp!!, "Share request message.")
 
-    val shareRequest = Gson().fromJson(message.body!!.substring("REQUEST_SHARE".length), ShareRequest::class.java)
+    val shareRequest = Gson().fromJson(message.body!!.substring("REQUEST_FOR_SHARE_AES_KEY".length), ShareRequest::class.java)
     println(shareRequest)
     SignalDatabase.shareRequests[shareRequest.shareHash] = shareRequest
     context.getSharedPreferences("decryptionKey_requests", Context.MODE_PRIVATE).edit().putString(shareRequest.shareHash, Gson().toJson(shareRequest)).apply()

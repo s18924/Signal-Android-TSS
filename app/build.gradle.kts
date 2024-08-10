@@ -137,7 +137,7 @@ android {
 
   packagingOptions {
     resources {
-      excludes += setOf("LICENSE.txt", "LICENSE", "NOTICE", "asm-license.txt", "META-INF/LICENSE", "META-INF/LICENSE.md", "META-INF/NOTICE", "META-INF/LICENSE-notice.md", "META-INF/proguard/androidx-annotations.pro", "libsignal_jni.dylib", "signal_jni.dll", "libsignal_jni_testing.dylib", "signal_jni_testing.dll")
+      excludes += setOf("LICENSE.txt", "LICENSE", "NOTICE", "asm-license.txt", "META-INF/LICENSE", "META-INF/LICENSE.md", "META-INF/NOTICE", "META-INF/LICENSE-notice.md", "META-INF/proguard/androidx-annotations.pro", "libsignal_jni.dylib", "signal_jni.dll", "libsignal_jni_testing.dylib", "signal_jni_testing.dll", "META-INF/INDEX.LIST")
     }
   }
 
@@ -463,14 +463,10 @@ dependencies {
   implementation(project(":sticky-header-grid"))
   implementation(project(":photoview"))
   implementation(project(":core-ui"))
-  implementation("pjatk.bm.JTracableSecretSharing:JTracableSecretSharing:1.0.3"){
-    exclude(group = "org.bouncycastle", module = "bcprov-jdk18on")
-  }
+  implementation("pjatk.bm.JTracableSecretSharing:JTracableSecretSharing:1.0.14")
   implementation("com.google.code.gson:gson:2.11.0")
   implementation ("com.squareup.retrofit2:retrofit:2.9.0")
   implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
-
-//  implementation(files("src/main/res/JTracableSecretSharing-1.0.2-jar-with-dependencies.jar"))
 
   implementation(libs.androidx.fragment.ktx)
   implementation(libs.androidx.appcompat) {
