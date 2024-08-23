@@ -164,7 +164,7 @@ object DataMessageProcessor {
     when {
       message.isSecret -> handleSecretMessage(content, senderRecipient, message)
       message.isSecretRequest -> handleRequestShareMessage(context, content, senderRecipient, message)
-      message.isSecretResponse -> handleResponseShareMessage(context, content, senderRecipient, message)
+      message.isSecretResponse -> handleResponseShareMessage(context, senderRecipient, message)
       message.isInvalid -> handleInvalidMessage(context, senderRecipient.id, groupId, envelope.timestamp!!)
       message.isEndSession -> insertResult = handleEndSessionMessage(context, senderRecipient.id, envelope, metadata)
       message.isExpirationUpdate -> insertResult = handleExpirationUpdate(envelope, metadata, senderRecipient.id, threadRecipient.id, groupId, message.expireTimerDuration, receivedTime, false)
@@ -250,7 +250,7 @@ object DataMessageProcessor {
 
     val receivedSecret = Gson().fromJson(message.body!!.substring(7), Secret::class.java)
 
-    if(SignalDatabase.secrets.containsKey(receivedSecret.hash)){
+    if(SignalDatabase.secrets.containsKey(receivedSecret.hash)){ //TODO bug który nadpisuje share jeśli jestem w kliencie w widoku share?
       receivedSecret.shares.stream().forEach { share ->
         if(SignalDatabase.secrets[receivedSecret.hash]?.shares?.any { it.hash == share.hash } == false){
           SignalDatabase.secrets[receivedSecret.hash]?.shares?.add(share)
@@ -285,7 +285,7 @@ object DataMessageProcessor {
         }
     }
   }
-  private fun handleResponseShareMessage(context: Context, content: Content, senderRecipient: Recipient, message: DataMessage) {
+  private fun handleResponseShareMessage(context: Context, senderRecipient: Recipient, message: DataMessage) {
 
     log(message.timestamp!!, "Share response message.")
 

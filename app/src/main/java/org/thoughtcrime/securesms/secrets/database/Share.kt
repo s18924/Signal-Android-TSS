@@ -8,6 +8,7 @@ package org.thoughtcrime.securesms.secrets.database
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 import lombok.EqualsAndHashCode
+import org.thoughtcrime.securesms.sharing.v2.ShareState
 import pjatk.secret.crypto.AesCryptoUtils
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -26,5 +27,10 @@ data class Share @OptIn(ExperimentalEncodingApi::class) constructor(
   var isForwardedToAccessMachine: Boolean = false, //TODO States
   var isReturned: Boolean = false,
   var isDecrypted: Boolean = false,
-  var decryptedData: ByteArray? = null
-) : Parcelable
+  var decryptedData: ByteArray? = null,
+  var name: String? = null,
+//  var shareState: ShareState? = ShareState.CREATED,
+//  val shareStates: Set<ShareState> = mutableSetOf(ShareState.CREATED)
+) : Parcelable {
+  enum class ShareState { CREATED, ENCRYPTED, SHARED, REQUESTED, ACCESS_KEY_REQUESTED, ACCESS_PERSISTED, ACCESS_KEY_RECEIVED, RETURNED, DECRYPTED, RECREATED }
+}

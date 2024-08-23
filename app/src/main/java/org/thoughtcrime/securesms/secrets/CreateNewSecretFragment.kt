@@ -32,7 +32,7 @@ import org.thoughtcrime.securesms.secrets.database.Share
 import org.thoughtcrime.securesms.sms.MessageSender
 import org.whispersystems.signalservice.api.util.OptionalUtil.asOptional
 import pjatk.secret.TraceableSecretSharingClient
-import java.time.LocalDateTime
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.io.encoding.ExperimentalEncodingApi
 
@@ -54,7 +54,7 @@ class CreateNewSecretFragment : Fragment() {
 
       view?.findViewById<AppCompatTextView>(R.id.selectedFileName)?.text = getFileNameFromUri(uri)
 
-      view?.findViewById<TextView>(R.id.secretNameEditText)?.text = "${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))} ${getFileNameFromUri(uri)}"
+      view?.findViewById<TextView>(R.id.secretNameEditText)?.text = "${LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_"))} ${getFileNameFromUri(uri)}"
       secretContent = content
       fileUri = uri
     }
@@ -82,6 +82,7 @@ class CreateNewSecretFragment : Fragment() {
     val secretShareNumberEditText = view.findViewById<EditText>(R.id.secretShareNumberEditTextNumber)
     val secretNameEditText = view.findViewById<EditText>(R.id.secretNameEditText)
     val secretRecoveryShareNumberEditText = view.findViewById<EditText>(R.id.secretRecoveryShareNumberEditTextNumber)
+    val summaryTextView = view.findViewById<TextView>(R.id.textView_summary)
 
     val textWatcher = object : TextWatcher {
       override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -93,6 +94,7 @@ class CreateNewSecretFragment : Fragment() {
           secretRecoveryShareNumberEditText.text.toString().toInt() > secretShareNumberEditText.text.toString().toInt() - 1 -> false
           else -> true
         }
+        summaryTextView.text = "Your secret will be divided into ${secretShareNumberEditText.text} shares and ${secretRecoveryShareNumberEditText.text} of them will be needed to recreate it. "
       }
     }
 
@@ -132,9 +134,11 @@ class CreateNewSecretFragment : Fragment() {
           Share(
             it.encryptedShare,
             k = k,
-            owner = Recipient.self().aci.get().toString()
+            owner = Recipient.self().aci.get().toString(),
+//            shareStates = mutableSetOf(Share.ShareState.CREATED, Share.ShareState.ENCRYPTED)
           )
-        }.toMutableList()
+        }.toMutableList(),
+        timestamp = System.currentTimeMillis()
       )
 
       persistSecret(view, newSecret)
@@ -238,7 +242,7 @@ class CreateNewSecretFragment : Fragment() {
       if (it.moveToFirst()) {
         val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
         val sizeIndex = it.getColumnIndex(OpenableColumns.SIZE)
-        return it.getString(nameIndex) + " " + it.getString(sizeIndex)
+        return it.getString(nameIndex) + "_" + it.getString(sizeIndex)
       }
     }
     return null

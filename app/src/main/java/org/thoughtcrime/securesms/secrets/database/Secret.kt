@@ -20,9 +20,13 @@ data class Secret(
   val n: Int,
   val shares: MutableList<Share> = mutableListOf(),
   val hash: String = calculateHash(shares),
+  val timestamp: Long? = null,
   var recreatedSecret: ByteArray? = null
 ) : Parcelable {
 
+  init{
+    shares.forEachIndexed{ index, share -> if(share.name==null) share.name = "$name/share_${index+1}" }
+  }
 
 
   companion object{
@@ -34,7 +38,6 @@ data class Secret(
 
         .findAny()
       if(shareWithSecretHash.isPresent){
-
         return shareWithSecretHash.get().hashOfSecret!!
       }
 
