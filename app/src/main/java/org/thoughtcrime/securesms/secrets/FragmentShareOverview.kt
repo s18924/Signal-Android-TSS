@@ -1,7 +1,6 @@
 package org.thoughtcrime.securesms.secrets
 
 import android.content.Context
-import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -34,8 +33,12 @@ import org.thoughtcrime.securesms.secrets.model.Status
 import org.whispersystems.signalservice.api.push.ServiceId
 import pjatk.secret.crypto.AesCryptoUtils
 import pjatk.secret.crypto.RsaCryptoUtils
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.security.KeyFactory
 import java.security.spec.PKCS8EncodedKeySpec
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import javax.crypto.spec.SecretKeySpec
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -60,11 +63,14 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
     val shareButton: Button = itemView.findViewById(R.id.button_shareShare)
     val downloadButton: Button = itemView.findViewById(R.id.button_downloadShare)
     val removeButton: Button = itemView.findViewById(R.id.button_removeShare)
+    val updateLastAccessButton: Button = itemView.findViewById(R.id.button_lastAccess)
     val contactsSpinner: Spinner = itemView.findViewById(R.id.spinner_contacts)
     val isShared: TextView = itemView.findViewById(R.id.textView_isShared)
+    val lastAccess: TextView = itemView.findViewById(R.id.textView_lastAccess)
     val checkboxKey: CheckBox = itemView.findViewById(R.id.checkBox_key)
     val checkboxShare: CheckBox = itemView.findViewById(R.id.checkBox_share)
-//    val shareRequestsPreferences: SharedPreferences = itemView.context.getSharedPreferences("share_requests", Context.MODE_PRIVATE)/**/
+
+    //    val shareRequestsPreferences: SharedPreferences = itemView.context.getSharedPreferences("share_requests", Context.MODE_PRIVATE)/**/
     val privateRsaKeysForShares: SharedPreferences = itemView.context.getSharedPreferences("share_private_keys", Context.MODE_PRIVATE)
     val secretSharedPreferences: SharedPreferences = itemView.context.getSharedPreferences("secret_preferences", Context.MODE_PRIVATE)
     val decryptionKeyRequestPreferences: SharedPreferences = itemView.context.getSharedPreferences("decryptionKey_requests", Context.MODE_PRIVATE)
@@ -103,11 +109,23 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
           shareShareWithTrustee(share, holder) //Share share
         }
       } else {
-          if (share.isRequested && !holder.checkboxKey.isChecked ) { //TODO
-            requestDecryptionKey(holder, share) //request key from access machine
-          } else {
-            sendBack(share, holder)
-          }
+        if (share.isRequested && !holder.checkboxKey.isChecked) { //TODO
+          requestDecryptionKey(holder, share) //request key from access machine
+        } else {
+          sendBack(share, holder)
+        }
+      }
+      updateView(holder, share)
+    }
+
+    holder.updateLastAccessButton.setOnClickListener {
+      coroutineScope.launch {
+        val response = SecretServerApiUtils.makeApiRequest {
+          SecretServerApiUtils.apiService.lastShareAccess(URLEncoder.encode(share.hash, StandardCharsets.UTF_8.toString()))
+        }
+        println("!! $response ${response.body()}")
+        val pattern = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        holder.lastAccess.text = "Accessed: ${ZonedDateTime.parse(response.body()?.get(0)?.instant).format(pattern)} "
       }
       updateView(holder, share)
     }
@@ -124,7 +142,7 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
 
         println("!! $response ${response.body()}")
 
-        if(response.body() != null){
+        if (response.body() != null) {
           Toast.makeText(holder.itemView.context, response.body()?.message, Toast.LENGTH_LONG).show()
         }
 
@@ -149,7 +167,7 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
     holder.removeButton.setOnClickListener {
 //      decrypt key
 
-      val request = Gson().fromJson(holder.decryptionKeyRequestPreferences.getString(share.hash,""), ShareRequest::class.java)
+      val request = Gson().fromJson(holder.decryptionKeyRequestPreferences.getString(share.hash, ""), ShareRequest::class.java)
       val privateRecryptionKey = holder.privateRsaKeysForShares.getString(share.hash, "")
       var decoded = Base64.decode(privateRecryptionKey!!)
 
@@ -178,26 +196,58 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
   }
 
   private fun updateView(holder: ViewHolder, share: Share) {
-    holder.shareHashTextView.text = share.hash
+    holder.shareHashTextView.text = share.name.orEmpty()
     isOwner = share.owner == Recipient.self().aci.get().toString()
+
+    /*    if (share.shareState == Share.ShareState.RETURNED) {
+          holder.removeButton.isVisible = true
+        }
+
+        share.shareStates.forEach {
+          holder.isShared.text = "${holder.isShared.text} $it |"
+        }
+
+        when (share.shareState) {
+          Share.ShareState.CREATED -> {
+    //        holder.isShared.text = "${holder.isShared.text} CREATED | "
+          }
+          Share.ShareState.ENCRYPTED -> {
+    //        holder.isShared.text = "${holder.isShared.text} Encrypted | "
+          }
+          Share.ShareState.SHARED -> {
+    //        holder.isShared.text = "${holder.isShared.text} Shared | "
+          }
+          Share.ShareState.REQUESTED -> TODO()
+          Share.ShareState.ACCESS_KEY_REQUESTED -> TODO()
+          Share.ShareState.ACCESS_PERSISTED -> TODO()
+          Share.ShareState.ACCESS_KEY_RECEIVED -> TODO()
+          Share.ShareState.RETURNED -> TODO()
+          Share.ShareState.DECRYPTED -> TODO()
+          Share.ShareState.RECREATED -> TODO()
+          null -> TODO()
+        }*/
 
 
     if (isOwner) {
       holder.downloadButton.isVisible = false
       holder.checkboxShare.isChecked = !share.isShared
-      holder.isShared.text = if (share.isShared) "Already shared" else "Not shared"
+      holder.isShared.text = if (share.isShared) "Status: Already shared" else "Status: Not shared"
       holder.shareButton.text = if (share.isShared) "request" else "share"
-      if(share.isRequested){
+      if (share.isRequested) {
         holder.shareButton.text = "Requested"
         holder.shareButton.isEnabled = false
         holder.contactsSpinner.setSelection((holder.contactsSpinner.adapter as RecipientAdapter).getTrusteePosition(share))
-        if(share.isReturned){
+        if (share.isReturned) {
           holder.isShared.text = "Returned"
           holder.shareButton.text = "Returned"
           holder.checkboxShare.isChecked = true
           holder.checkboxKey.isChecked = true
-
-
+          holder.removeButton.isVisible = true;
+          if (share.isDecrypted) {
+            holder.removeButton.isEnabled = false;
+            holder.shareButton.text = "Decrypted"
+            holder.isShared.text = "Share decrypted."
+          }
         }
       }
     } else {
@@ -211,12 +261,12 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
         holder.isShared.text = "Share requested!"
         holder.shareButton.isEnabled = true
         holder.downloadButton.text = "Update"
-        if(share.isForwardedToAccessMachine) {
+        if (share.isForwardedToAccessMachine) {
           holder.shareButton.isEnabled = false
           holder.shareButton.text = "Send back (key needed)"
           holder.downloadButton.isEnabled = true
 
-          if(holder.checkboxShare.isChecked && holder.checkboxKey.isChecked){
+          if (holder.checkboxShare.isChecked && holder.checkboxKey.isChecked) {
             holder.shareButton.isEnabled = true
             holder.shareButton.text = "Send back"
           }
@@ -238,7 +288,7 @@ class ShareAdapter(private val shares: List<Share>) : RecyclerView.Adapter<Share
 
   private fun shareShareWithTrustee(share: Share, holder: ViewHolder) {
     val secret = Secret(
-      Recipient.self().profileName.toString(),
+      share.name?.split("/")?.get(0).toString(),
       Recipient.self().aci.get().toString(),
       share.k,
       0,
@@ -323,7 +373,7 @@ class RecipientAdapter(context: Context, private val recipients: Array<Recipient
     val view = convertView ?: LayoutInflater.from(context).inflate(android.R.layout.simple_spinner_item, parent, false)
     val textView = view.findViewById<TextView>(android.R.id.text1)
 
-    "${SignalDatabase.recipients.getRecord(recipient!!).signalProfileName} - ${recipient.toLong()}".also { textView.text = it }
+    "${SignalDatabase.recipients.getRecord(recipient!!).signalProfileName}".also { textView.text = it }
 
     return view
   }

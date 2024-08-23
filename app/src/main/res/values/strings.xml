@@ -7174,9 +7174,7 @@
     <string name="mySecretsString">"My secrets "</string>
     <string name="recreateSecret">"Recreate Secret "</string>
     <string name="secretsSharedWithMe">"secrets shared with me "</string>
-    <!-- TODO: Remove or change this placeholder text -->
-    <string name="secretName">secret name</string>
-    <!-- TODO: Remove or change this placeholder text -->
+    <string name="secretName">Secret name</string>
     <string name="hello_blank_fragment">Hello blank fragment</string>
 
     <!-- Primary action button label when selecting a backup tier without a current selection -->

@@ -16,8 +16,6 @@ import org.thoughtcrime.securesms.recipients.RecipientId
 import org.thoughtcrime.securesms.secrets.database.Secret
 import org.whispersystems.signalservice.api.push.ServiceId
 import java.io.File
-import java.nio.file.Files
-import java.nio.file.Paths
 import java.security.SecureRandom
 import java.util.stream.Collectors
 
@@ -51,7 +49,7 @@ class SecretOverviewFragment : Fragment() {
     binding.textViewShareK.text = "Number of shares needed to recreate: ${secret?.k.toString()}"
     binding.textViewShareN.text = "Total shares: ${secret?.n.toString()}"
 
-    var sharesAvailable = secret!!.shares.stream().filter { it.isDecrypted }.count()
+    val sharesAvailable = secret!!.shares.stream().filter { it.isDecrypted }.count()
     if (sharesAvailable < secret.k) {
       binding.buttonRecreate.isEnabled = false
       binding.buttonRecreate.text = "${sharesAvailable}/${secret.k} shares available - can not be recreated "
@@ -61,7 +59,7 @@ class SecretOverviewFragment : Fragment() {
     }
 
     binding.buttonRecreate.setOnClickListener {
-      var recreatedSecret = Scheme(SecureRandom(), secret.n, secret.k)
+      val recreatedSecret = Scheme(SecureRandom(), secret.n, secret.k)
         .join(
           secret.shares
             .stream()
@@ -84,20 +82,20 @@ class SecretOverviewFragment : Fragment() {
 
     }
 
-    binding.textViewSecretHash.text = secret?.hash
+    binding.textViewSecretHash.text = secret.name
 
     viewLifecycleOwner.lifecycleScope.launch {
-      val serviceId = ServiceId.parseOrThrow(secret!!.owner)
+      val serviceId = ServiceId.parseOrThrow(secret.owner)
       val recipientId = RecipientId.from(serviceId)
-      if (Recipient.self().id.equals(recipientId)) {
+      if (Recipient.self().id == recipientId) {
         ownsSecret = true
       }
-      binding.textViewOwnerName.text = "Owner: ${if (ownsSecret) "(You) " else ""}${Recipient.resolved(recipientId).profileName} (${Recipient.resolved(recipientId).e164.orElse("")})"
+      binding.textViewOwnerName.text = "Owner: ${if (ownsSecret) "(You) " else "${Recipient.resolved(recipientId).profileName}"}"
 
     }
 
     val recyclerView = binding.recyclerView
-    recyclerView.adapter = ShareAdapter(secret!!.shares)
+    recyclerView.adapter = ShareAdapter(secret.shares)
     recyclerView.layoutManager = LinearLayoutManager(context)
     return binding.root
   }

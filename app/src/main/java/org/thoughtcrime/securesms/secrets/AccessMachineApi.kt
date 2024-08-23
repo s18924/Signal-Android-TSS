@@ -22,15 +22,18 @@ interface AccessMachineApi {
   @POST("/api/secretKeyRequest")
   suspend fun secretKeyRequest(@Body secretKeyRequest: SecretKeyRequest): Response<String>
 
-
   @GET("/api/secretKeyResponse/{transactionId}")
   suspend fun secretKeyResponse(@Path("transactionId") transactionId: String): Response<SecretKeyResponse>
+
+  @GET("/api/status/{shareHash}")
+  suspend fun lastShareAccess(@Path("shareHash") shareHash: String): Response<List<KeyAccess>>
 
 }
 
 data class PersistData(val hash: ByteArray, val key: ByteArray)
 data class SecretKeyRequest(val requestorKey: ByteArray, val encryptedData: ByteArray)
 data class SecretKeyResponse(val transactionId: String, val message: String, val recryptedKey: String)
+data class KeyAccess(val transactionId: String, val instant: String, val shareHash: String, val keyHash: String)
 
 
 
